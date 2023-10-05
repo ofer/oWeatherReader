@@ -1,0 +1,14 @@
+.weather-report-display {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  padding: 10px;
+}
+
+.data-headers {
+    text-align: start;
+}
+
+.data-values {
+    text-align: end;
+}
