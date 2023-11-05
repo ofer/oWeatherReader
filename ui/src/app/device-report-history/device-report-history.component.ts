@@ -19,30 +19,33 @@ export class DeviceReportHistoryComponent {
   updateOptions: EChartsOption;
 
   @Input()
-  set deviceModel(value: string) {
-    // Call API to get data for the new device model
-    this.api.getHistoricDataForDeviceModel(value).subscribe(historicWeatherReports => {
-      // Update chart data with new data
-      this.data = this.convertToTemperatureData(historicWeatherReports);
-      this.humidityData = this.convertToHumidityData(historicWeatherReports);
-      this.updateOptions = {
-        series: [
-          {
-            data: this.data,
-          },
-          {
-            data: this.humidityData
-          }
-        ],
-      };
-    });
+  set deviceModel(value: string | null) {
+    if (value != null) {
+      // Call API to get data for the new device model
+      this.api.getHistoricDataForDeviceModel(value).subscribe(historicWeatherReports => {
+        // Update chart data with new data
+        this.data = this.convertToTemperatureData(historicWeatherReports);
+        this.humidityData = this.convertToHumidityData(historicWeatherReports);
+        this.updateOptions = {
+          series: [
+            {
+              data: this.data,
+            },
+            {
+              data: this.humidityData
+            }
+          ],
+        };
+      });
+    }
   }
 
   convertToTemperatureData(historicWeatherReports: WeatherReport[]): DataT[] {
     return historicWeatherReports.filter(report => this.isReportInRange(report)).map(report => {
       return {
         name: report.Time.toString(),
-        value: [report.Time.toString(), report.TemperatureInF] } as DataT;
+        value: [report.Time.toString(), report.TemperatureInF]
+      } as DataT;
     });
   }
 
@@ -50,7 +53,8 @@ export class DeviceReportHistoryComponent {
     return historicWeatherReports.filter(report => this.isReportInRange(report)).map(report => {
       return {
         name: report.Time.toString(),
-        value: [report.Time.toString(), report.HumidityInPercentage] } as DataH;
+        value: [report.Time.toString(), report.HumidityInPercentage]
+      } as DataH;
     });
   }
 
@@ -65,7 +69,7 @@ export class DeviceReportHistoryComponent {
   constructor(private api: ApiService) {
     this.data = [];
     this.humidityData = [];
-    
+
     // initialize chart options:
     this.options = {
       title: {

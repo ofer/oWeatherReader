@@ -3,6 +3,7 @@ import { Breakpoints, BreakpointObserver } from '@angular/cdk/layout';
 import { map } from 'rxjs/operators';
 import { Observable } from 'rxjs';
 import { ApiService } from '../api.service';
+import { SettingsService } from '../settings.service';
 import { WeatherReport } from '../weather-report';
 
 @Component({
@@ -14,6 +15,7 @@ export class LatestReportsComponent {
   private breakpointObserver = inject(BreakpointObserver);
 
   latestReport: Observable<WeatherReport>;
+  savedDeviceModelName: string | null;
 
   /** Based on the screen size, switch from standard to one column per row */
   // cards = this.breakpointObserver.observe(Breakpoints.Handset).pipe(
@@ -21,7 +23,7 @@ export class LatestReportsComponent {
   //     if (matches) {
   //       return [
   //         { title: 'Card 1', cols: 2, rows: 1 },
-  //         // { title: 'Card 2', cols: 1, rows: 1 },
+  //         // { title: 'Card 2', cols: 1, ro  ws: 1 },
   //         // { title: 'Card 3', cols: 1, rows: 1 },
   //         // { title: 'Card 4', cols: 1, rows: 1 }
   //       ];
@@ -36,7 +38,8 @@ export class LatestReportsComponent {
   //   })
   // );
 
-  constructor(private apiService: ApiService) {
+  constructor(private apiService: ApiService, settingsService: SettingsService) {
     this.latestReport = apiService.latestReportObserver;
+    this.savedDeviceModelName = settingsService.getMonitoringDeviceName();
   }
 }

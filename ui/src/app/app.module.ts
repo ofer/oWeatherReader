@@ -19,6 +19,10 @@ import { NavigationComponent } from './navigation/navigation.component';
 import { WeatherReportDisplayComponent } from './weather-report-display/weather-report-display.component';
 import { NgxEchartsModule } from 'ngx-echarts';
 import { DeviceReportHistoryComponent } from './device-report-history/device-report-history.component';
+import { SettingsComponent } from './settings/settings.component';
+import {MatSelectModule} from '@angular/material/select';
+import {MatInputModule} from '@angular/material/input';
+import {MatFormFieldModule} from '@angular/material/form-field';
 
 @NgModule({
   declarations: [
@@ -26,7 +30,8 @@ import { DeviceReportHistoryComponent } from './device-report-history/device-rep
     LatestReportsComponent,
     NavigationComponent,
     WeatherReportDisplayComponent,
-    DeviceReportHistoryComponent
+    DeviceReportHistoryComponent,
+    SettingsComponent
   ],
   imports: [
     BrowserModule,
@@ -41,6 +46,9 @@ import { DeviceReportHistoryComponent } from './device-report-history/device-rep
     MatGridListModule,
     MatCardModule,
     MatMenuModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
     NgxEchartsModule.forRoot({
       echarts: () => import('echarts')
     })

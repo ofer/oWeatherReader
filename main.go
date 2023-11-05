@@ -25,6 +25,11 @@ type WeatherReport struct {
 	HumidityInPercentage uint8
 }
 
+type DeviceModel struct {
+	DeviceModel string
+	ReportCount uint64
+}
+
 type Rtl433WeatherReport struct {
 	Time          time.Time
 	Model         string
@@ -74,7 +79,21 @@ func setupRouter(db *gorm.DB) *gin.Engine {
 		getWeatherReportsByModel(c, db)
 	})
 
+	r.GET("/models", func(c *gin.Context) {
+		getModels(c, db)
+	})
+
 	return r
+}
+
+func getModels(c *gin.Context, db *gorm.DB) {
+	var deviceModels []DeviceModel
+	result := db.Model(&WeatherReport{}).Select("device_model, COUNT(*) as report_count").Group("device_model").Find(&deviceModels)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve weather reports"})
+		return
+	}
+	c.JSON(http.StatusOK, deviceModels)
 }
 
 func getLatestWeatherReport(c *gin.Context, db *gorm.DB) {
@@ -89,7 +108,7 @@ func getLatestWeatherReport(c *gin.Context, db *gorm.DB) {
 
 func rtlMonitor(db *gorm.DB) {
 	fmt.Println("Running rtl_433")
-	command := exec.Command("/usr/bin/rtl_433", "-F", "json", "-M", "time:iso:utc:tz")
+	command := exec.Command("/usr/bin/rtl_433", "-f", "433000000", "-F", "json", "-M", "time:iso:utc:tz")
 	stdout, err := command.StdoutPipe()
 
 	reader := bufio.NewReader(stdout)
