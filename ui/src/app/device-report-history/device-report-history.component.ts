@@ -9,7 +9,6 @@ import { WeatherReport } from '../weather-report';
   styleUrls: ['./device-report-history.component.scss']
 })
 export class DeviceReportHistoryComponent {
-  // @Input() deviceModel!: string;
 
   private data: DataT[];
   private humidityData: DataH[];
@@ -64,7 +63,6 @@ export class DeviceReportHistoryComponent {
     oldestUseableDate.setDate(oldestUseableDate.getDate() - this.DAYS_OF_HISTORY);
     return reportDate >= oldestUseableDate;
   }
-
 
   constructor(private api: ApiService) {
     this.data = [];

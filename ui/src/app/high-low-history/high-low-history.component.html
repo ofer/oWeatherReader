@@ -1,0 +1,24 @@
+<table mat-table [dataSource]="highAndLowTableData" class="mat-elevation-z8">
+    <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let element">{{element.date | date:'shortDate'}}</td>
+    </ng-container>
+    <ng-container matColumnDef="highTemperatureF">
+        <th mat-header-cell *matHeaderCellDef>High Temperature</th>
+        <td mat-cell *matCellDef="let element">{{element.highTemperatureF}}</td>
+    </ng-container>
+    <ng-container matColumnDef="lowTemperatureF">
+        <th mat-header-cell *matHeaderCellDef>Low Temperature</th>
+        <td mat-cell *matCellDef="let element">{{element.lowTemperatureF}}</td>
+    </ng-container>
+    <ng-container matColumnDef="highHumidity">
+        <th mat-header-cell *matHeaderCellDef>High Humidity</th>
+        <td mat-cell *matCellDef="let element">{{element.highHumidity}}</td>
+    </ng-container>
+    <ng-container matColumnDef="lowHumidity">
+        <th mat-header-cell *matHeaderCellDef>Low Humidity</th>
+        <td mat-cell *matCellDef="let element">{{element.lowHumidity}}</td>
+    </ng-container>
+    <tr mat-header-row *matHeaderRowDef="highAndLowTableColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: highAndLowTableColumns;"></tr>
+</table>

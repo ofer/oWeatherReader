@@ -23,6 +23,8 @@ import { SettingsComponent } from './settings/settings.component';
 import {MatSelectModule} from '@angular/material/select';
 import {MatInputModule} from '@angular/material/input';
 import {MatFormFieldModule} from '@angular/material/form-field';
+import {MatTableModule} from '@angular/material/table';
+import { HighLowHistoryComponent } from './high-low-history/high-low-history.component';
 
 @NgModule({
   declarations: [
@@ -31,7 +33,8 @@ import {MatFormFieldModule} from '@angular/material/form-field';
     NavigationComponent,
     WeatherReportDisplayComponent,
     DeviceReportHistoryComponent,
-    SettingsComponent
+    SettingsComponent,
+    HighLowHistoryComponent
   ],
   imports: [
     BrowserModule,
@@ -47,6 +50,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
     MatCardModule,
     MatMenuModule,
     MatFormFieldModule,
+    MatTableModule,
     MatInputModule,
     MatSelectModule,
     NgxEchartsModule.forRoot({

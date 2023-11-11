@@ -1,7 +1,7 @@
 <div class="grid-container">
   <h1 class="mat-h1">Dashboard</h1>
   <mat-grid-list cols="2" rowHeight="450px">
-    <mat-grid-tile  [colspan]="2" [rowspan]="1">
+    <mat-grid-tile [colspan]="2" [rowspan]="1">
       <mat-card class="dashboard-card">
         <mat-card-header>
           <mat-card-title>
@@ -40,6 +40,19 @@
         <mat-card-content class="dashboard-card-content">
           <div *ngIf="latestReport | async as report; else elseBlock">
             <app-device-report-history [deviceModel]="savedDeviceModelName"></app-device-report-history>
+          </div>
+          <ng-template #elseBlock>Waiting for data to arrive.</ng-template>
+        </mat-card-content>
+      </mat-card>
+    </mat-grid-tile>
+    <mat-grid-tile [colspan]="2" [rowspan]="1">
+      <mat-card class="dashboard-card">
+        <mat-card-header>
+          <mat-card-title>Highs and lows</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div *ngIf="latestReport | async as report; else elseBlock">
+            <app-high-low-history [deviceModel]="savedDeviceModelName"></app-high-low-history>
           </div>
           <ng-template #elseBlock>Waiting for data to arrive.</ng-template>
         </mat-card-content>

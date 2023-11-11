@@ -46,7 +46,8 @@ type Rtl433WeatherReport struct {
 func getWeatherReportsByModel(c *gin.Context, db *gorm.DB) {
 	model := c.Param("model")
 	var weatherReports []WeatherReport
-	result := db.Where("device_model = ?", model).Find(&weatherReports)
+	threeDaysAgo := time.Now().AddDate(0, 0, -5)
+	result := db.Where("device_model = ? AND time > ?", model, threeDaysAgo).Find(&weatherReports)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve weather reports"})
 		return
@@ -137,8 +138,8 @@ func rtlMonitor(db *gorm.DB) {
 		err = json.Unmarshal([]byte(str), &rtl433WeatherReport)
 
 		if err != nil {
-			log.Fatal("Unmarshal Error:", err)
-			return
+			log.Println("Unmarshal Error:", err)
+			continue
 		}
 
 		weatherReport.Time = rtl433WeatherReport.Time
