@@ -30,10 +30,11 @@ export class HighLowHistoryComponent {
   getHighAndLowTableData(historicWeatherReports: WeatherReport[]): HighAndLowData[] {
     const highAndLowTableData: HighAndLowData[] = [];
     const groupedByDate = this.groupByDate(historicWeatherReports);
+    const groupedByMiddleOfTheDay = this.groupByMiddleOfTheDay(historicWeatherReports);
     groupedByDate.forEach((reports, date) => {
       const highTemperatureF = Math.max(...reports.map(report => report.TemperatureInF));
-      const lowTemperatureF = Math.min(...reports.map(report => report.TemperatureInF));
-      const highHumidity = Math.max(...reports.map(report => report.HumidityInPercentage));
+      const lowTemperatureF = Math.min(...(groupedByMiddleOfTheDay.get(date) ?? []).map(report => report.TemperatureInF));
+      const highHumidity = Math.max(...(groupedByMiddleOfTheDay.get(date) ?? []).map(report => report.HumidityInPercentage));
       const lowHumidity = Math.min(...reports.map(report => report.HumidityInPercentage));
       highAndLowTableData.push({
         date: new Date(date),
@@ -60,6 +61,20 @@ export class HighLowHistoryComponent {
     return groupedByDate;
   }
 
+  groupByMiddleOfTheDay(historicWeatherReports: WeatherReport[]) {
+    const groupedByDate = new Map<string, WeatherReport[]>();
+    historicWeatherReports.forEach(report => {
+      let reportDate = new Date(report.Time);
+      reportDate = new Date(reportDate.getTime() - 12 * 60 * 60000);
+      const date = new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate());
+      const dateString = date.toDateString();
+      if (!groupedByDate.has(dateString)) {
+        groupedByDate.set(dateString, []);
+      }
+      groupedByDate.get(dateString)?.push(report);
+    });
+    return groupedByDate;
+  }
 }
 
 type HighAndLowData = {
