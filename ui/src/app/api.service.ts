@@ -9,18 +9,18 @@ import { Observable, interval, switchMap, timer } from 'rxjs';
 })
 export class ApiService {
   getHistoricDataForDeviceModel(deviceModel: string) : Observable<WeatherReport[]>{
-    return this.http.get<WeatherReport[]>(`/reports/${deviceModel}`)
+    return this.http.get<WeatherReport[]>(`./reports/${deviceModel}`)
   }
 
   getModels():Observable<DeviceModel[]>{
-    return this.http.get<DeviceModel[]>('/models');
+    return this.http.get<DeviceModel[]>('./models');
   }
 
   latestReportObserver: Observable<WeatherReport>;
 
   constructor(private http: HttpClient) {
     this.latestReportObserver = timer(0,30000).pipe(
-      switchMap(() => this.http.get<WeatherReport>('/reports/latest'))
+      switchMap(() => this.http.get<WeatherReport>('./reports/latest'))
     );
   }
 }
