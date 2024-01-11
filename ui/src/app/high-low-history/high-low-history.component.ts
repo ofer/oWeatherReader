@@ -10,7 +10,7 @@ import { WeatherReport } from '../weather-report';
 export class HighLowHistoryComponent {
 
   highAndLowTableData: HighAndLowData[];
-  highAndLowTableColumns: string[] = ['date', 'highTemperatureF', 'lowTemperatureF', 'highHumidity', 'lowHumidity'];
+  highAndLowTableColumns: string[] = ['date', 'highTemperatureF', 'lowTemperatureF'];
 
   constructor(private api: ApiService) {
     this.highAndLowTableData = [];
