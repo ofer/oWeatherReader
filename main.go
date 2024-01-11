@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -154,8 +155,19 @@ func rtlMonitor(db *gorm.DB) {
 			}
 		}
 		weatherReport.HumidityInPercentage = uint8(rtl433WeatherReport.Humidity)
-
-		db.Create(&weatherReport)
+		// find if this report already exists in the database
+		var existingWeatherReport WeatherReport
+		result := db.Where("time = ? AND device_model = ?", weatherReport.Time, weatherReport.DeviceModel).First(&existingWeatherReport)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			db.Create(&weatherReport)
+		} else {
+			// if it does, ignore it, else create one
+			if existingWeatherReport.TemperatureInF != weatherReport.TemperatureInF || existingWeatherReport.HumidityInPercentage != weatherReport.HumidityInPercentage || existingWeatherReport.DeviceModel != weatherReport.DeviceModel {
+				db.Create(&weatherReport)
+			} else {
+				log.Println("Ignoring duplicate report")
+			}
+		}
 	}
 }
 
