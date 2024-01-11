@@ -100,7 +100,7 @@ export class DeviceReportHistoryComponent {
       },
       yAxis: {
         type: 'value',
-        boundaryGap: [0, '100%'],
+        scale: true,
         splitLine: {
           show: false,
         },
