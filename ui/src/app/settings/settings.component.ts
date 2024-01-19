@@ -2,6 +2,16 @@ import { Component } from '@angular/core';
 import { ApiService } from '../api.service';
 import { SettingsService } from '../settings.service';
 import { DeviceModel } from '../device-model';
+import { MatListOption, MatSelectionListChange } from '@angular/material/list';
+import { SelectionModel } from '@angular/cdk/collections';
+import { MatGridTileHeaderCssMatStyler } from '@angular/material/grid-list';
+
+export type DeviceListItem = {
+  name: string;
+  deviceModel: string;
+  reportCount: number;
+  selected: boolean;
+}
 
 @Component({
   selector: 'app-settings',
@@ -10,20 +20,34 @@ import { DeviceModel } from '../device-model';
 })
 export class SettingsComponent {
 
-  deviceModels: DeviceModel[];
+  devices: DeviceListItem[] = [];
+  // public get selectedDeviceModels(): string[] | null {
+  //   return this.settingsService.getMonitoringDeviceNames();
+  // }
 
-  public get selectedDeviceModel(): string | null {
-    return this.settingsService.getMonitoringDeviceName();
+  public selectDeviceModel(deviceModelName: string, shouldMonitor: boolean) { 
+    this.settingsService.setMonitoringDeviceName(deviceModelName, shouldMonitor);
   }
-
-  public set selectedDeviceModel(value: string) { 
-    this.settingsService.setMonitoringDeviceName(value);
+  onSelectionChange(event: MatSelectionListChange, selectionModel: SelectionModel<MatListOption>) {
+    this.devices.forEach(element => {
+      this.settingsService.setMonitoringDeviceName(element.deviceModel, false);
+    });
+    selectionModel.selected.forEach(element => {
+      this.settingsService.setMonitoringDeviceName(element.value, true);
+    });
   }
-
   constructor(private api: ApiService, private settingsService: SettingsService) {
-    this.deviceModels = [];
+
+    let selectedDevices = settingsService.getMonitoringDeviceNames();
     this.api.getModels().subscribe(deviceModels => {
-      this.deviceModels = deviceModels;
+      deviceModels.forEach(element => {
+        this.devices.push({
+          name: element.Name,
+          deviceModel: element.DeviceModel,
+          reportCount: element.ReportCount,
+          selected: selectedDevices?.includes(element.DeviceModel) ?? false
+        });
+      });
     });
   }
 }

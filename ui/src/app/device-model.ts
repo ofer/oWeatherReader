@@ -1,4 +1,5 @@
 export interface DeviceModel {
-    DeviceModel: string
-    ReportCount: number
+    DeviceModel: string,
+    ReportCount: number,
+    Name: string,
 }

@@ -15,7 +15,7 @@ export class LatestReportsComponent {
   private breakpointObserver = inject(BreakpointObserver);
 
   latestReport: Observable<WeatherReport>;
-  savedDeviceModelName: string | null;
+  deviceModelNames: string[] | null;
 
   /** Based on the screen size, switch from standard to one column per row */
   // cards = this.breakpointObserver.observe(Breakpoints.Handset).pipe(
@@ -40,6 +40,6 @@ export class LatestReportsComponent {
 
   constructor(private apiService: ApiService, settingsService: SettingsService) {
     this.latestReport = apiService.latestReportObserver;
-    this.savedDeviceModelName = settingsService.getMonitoringDeviceName();
+    this.deviceModelNames = settingsService.getMonitoringDeviceNames();
   }
 }

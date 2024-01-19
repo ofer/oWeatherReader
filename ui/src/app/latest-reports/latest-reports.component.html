@@ -23,40 +23,35 @@
         </mat-card-content>
       </mat-card>
     </mat-grid-tile>
-    <mat-grid-tile [colspan]="2" [rowspan]="1">
-      <mat-card class="dashboard-card">
-        <mat-card-header>
-          <mat-card-title>
-            History
-            <!-- <button mat-icon-button class="more-button" [matMenuTriggerFor]="menu" aria-label="Toggle menu">
-              <mat-icon>more_vert</mat-icon>
-            </button>
-            <mat-menu #menu="matMenu" xPosition="before">
-              <button mat-menu-item>Expand</button>
-              <button mat-menu-item>Remove</button>
-            </mat-menu> -->
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content class="dashboard-card-content">
-          <div *ngIf="latestReport | async as report; else elseBlock">
-            <app-device-report-history [deviceModel]="savedDeviceModelName"></app-device-report-history>
-          </div>
-          <ng-template #elseBlock>Waiting for data to arrive.</ng-template>
-        </mat-card-content>
-      </mat-card>
-    </mat-grid-tile>
-    <mat-grid-tile [colspan]="2" [rowspan]="1">
-      <mat-card class="dashboard-card">
-        <mat-card-header>
-          <mat-card-title>Highs and lows</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div *ngIf="latestReport | async as report; else elseBlock">
-            <app-high-low-history [deviceModel]="savedDeviceModelName"></app-high-low-history>
-          </div>
-          <ng-template #elseBlock>Waiting for data to arrive.</ng-template>
-        </mat-card-content>
-      </mat-card>
-    </mat-grid-tile>
+    <div *ngFor="let deviceModel of deviceModelNames">
+      <mat-grid-tile [colspan]="2" [rowspan]="1">
+        <mat-card class="dashboard-card">
+          <mat-card-header>
+            <mat-card-title>
+              History for {{deviceModel}}
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content class="dashboard-card-content">
+            <div *ngIf="latestReport | async as report; else elseBlock">
+              <app-device-report-history [deviceModel]="deviceModel"></app-device-report-history>
+            </div>
+            <ng-template #elseBlock>Waiting for data to arrive.</ng-template>
+          </mat-card-content>
+        </mat-card>
+      </mat-grid-tile>
+      <mat-grid-tile [colspan]="2" [rowspan]="1">
+        <mat-card class="dashboard-card">
+          <mat-card-header>
+            <mat-card-title>Highs and lows</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div *ngIf="latestReport | async as report; else elseBlock">
+              <app-high-low-history [deviceModel]="deviceModel"></app-high-low-history>
+            </div>
+            <ng-template #elseBlock>Waiting for data to arrive.</ng-template>
+          </mat-card-content>
+        </mat-card>
+      </mat-grid-tile>
+    </div>
   </mat-grid-list>
 </div>

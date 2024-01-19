@@ -27,8 +27,15 @@ type WeatherReport struct {
 }
 
 type DeviceModel struct {
+	DbId        uint `gorm:"primaryKey;autoIncrement"`
+	DeviceModel string
+	Name        string
+}
+
+type DeviceModelCount struct {
 	DeviceModel string
 	ReportCount uint64
+	Name        string
 }
 
 type Rtl433WeatherReport struct {
@@ -89,10 +96,11 @@ func setupRouter(db *gorm.DB) *gin.Engine {
 }
 
 func getModels(c *gin.Context, db *gorm.DB) {
-	var deviceModels []DeviceModel
-	result := db.Model(&WeatherReport{}).Select("device_model, COUNT(*) as report_count").Group("device_model").Find(&deviceModels)
+	var deviceModels []DeviceModelCount
+	// the device model count is a mix of the device model table and a count of the weather reports, so we need to do a join
+	result := db.Table("device_models").Select("device_models.device_model, device_models.name, count(weather_reports.device_model) as report_count").Joins("left join weather_reports on device_models.device_model = weather_reports.device_model").Group("device_models.device_model").Find(&deviceModels)
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve weather reports"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve device models"})
 		return
 	}
 	c.JSON(http.StatusOK, deviceModels)
@@ -145,6 +153,8 @@ func rtlMonitor(db *gorm.DB) {
 
 		weatherReport.Time = rtl433WeatherReport.Time
 		weatherReport.DeviceModel = rtl433WeatherReport.Model
+
+		// convert to F if necessary
 		if rtl433WeatherReport.Temperature_F != nil {
 			weatherReport.TemperatureInF = *rtl433WeatherReport.Temperature_F
 		} else {
@@ -155,6 +165,10 @@ func rtlMonitor(db *gorm.DB) {
 			}
 		}
 		weatherReport.HumidityInPercentage = uint8(rtl433WeatherReport.Humidity)
+
+		// check whether the device exists in the database, if it doesn't, add it
+		checkForDeviceModel(db, weatherReport)
+
 		// find if this report already exists in the database
 		var existingWeatherReport WeatherReport
 		result := db.Where("time = ? AND device_model = ?", weatherReport.Time, weatherReport.DeviceModel).First(&existingWeatherReport)
@@ -171,13 +185,25 @@ func rtlMonitor(db *gorm.DB) {
 	}
 }
 
+// checkForDeviceModelInfo checks whether the device model exists in the database, if it doesn't, adds it
+func checkForDeviceModel(db *gorm.DB, weatherReport WeatherReport) {
+	var deviceModelInfo DeviceModel
+	deviceModelInfo.DeviceModel = weatherReport.DeviceModel
+	deviceModelInfo.Name = weatherReport.DeviceModel
+
+	result := db.Where("device_model = ?", weatherReport.DeviceModel).First(&deviceModelInfo)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		db.Create(&deviceModelInfo)
+	}
+}
+
 func setupDatabase() *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("weather.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatal("failed to connect database", err)
 	}
 
-	db.AutoMigrate(&WeatherReport{})
+	db.AutoMigrate(&WeatherReport{}, &DeviceModel{})
 
 	return db
 }
