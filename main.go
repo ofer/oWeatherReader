@@ -108,7 +108,7 @@ func getModels(c *gin.Context, db *gorm.DB) {
 
 func getLatestWeatherReport(c *gin.Context, db *gorm.DB) {
 	var weatherReport WeatherReport
-	result := db.Order("time desc").First(&weatherReport)
+	result := db.Order("db_id desc").First(&weatherReport)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve latest weather report"})
 		return
@@ -169,19 +169,43 @@ func rtlMonitor(db *gorm.DB) {
 		// check whether the device exists in the database, if it doesn't, add it
 		checkForDeviceModel(db, weatherReport)
 
-		// find if this report already exists in the database
-		var existingWeatherReport WeatherReport
-		result := db.Where("time = ? AND device_model = ?", weatherReport.Time, weatherReport.DeviceModel).First(&existingWeatherReport)
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			db.Create(&weatherReport)
+		var shouldIgnoreReport = false
+		// find if the last reported humdity is 1 and the new one is 99, if so, ignore it
+		var lastWeatherReport WeatherReport
+		result := db.Where("device_model = ?", weatherReport.DeviceModel).Order("db_id desc").First(&lastWeatherReport)
+		if result.Error != nil {
+			log.Println("Failed to retrieve last weather report:", result.Error)
 		} else {
-			// if it does, ignore it, else create one
-			if existingWeatherReport.TemperatureInF != weatherReport.TemperatureInF || existingWeatherReport.HumidityInPercentage != weatherReport.HumidityInPercentage || existingWeatherReport.DeviceModel != weatherReport.DeviceModel {
-				db.Create(&weatherReport)
-			} else {
-				log.Println("Ignoring duplicate report")
+			if lastWeatherReport.HumidityInPercentage < 5 && weatherReport.HumidityInPercentage == 99 {
+				log.Println("deciding on proper humidity due to erroneous humidity report")
+				if lastWeatherReport.TemperatureInF > 70 {
+					log.Println("temp is > 80, setting humidity to 1")
+					weatherReport.HumidityInPercentage = 1
+				} else {
+					shouldIgnoreReport = true
+				}
 			}
 		}
+
+		// find if this report already exists in the database
+		var existingWeatherReport WeatherReport
+		result = db.Where("time = ? AND device_model = ?", weatherReport.Time, weatherReport.DeviceModel).First(&existingWeatherReport)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		} else {
+			// if it does, ignore it, else create one
+			if existingWeatherReport.TemperatureInF != weatherReport.TemperatureInF ||
+				existingWeatherReport.HumidityInPercentage != weatherReport.HumidityInPercentage ||
+				weatherReport.Time.Unix()-existingWeatherReport.Time.Unix() > 5 {
+			} else {
+				log.Println("Ignoring duplicate report")
+				shouldIgnoreReport = true
+			}
+		}
+
+		if !shouldIgnoreReport {
+			db.Create(&weatherReport)
+		}
+
 	}
 }
 

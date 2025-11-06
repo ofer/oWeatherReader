@@ -20,11 +20,12 @@ import { WeatherReportDisplayComponent } from './weather-report-display/weather-
 import { NgxEchartsModule } from 'ngx-echarts';
 import { DeviceReportHistoryComponent } from './device-report-history/device-report-history.component';
 import { SettingsComponent } from './settings/settings.component';
-import {MatSelectModule} from '@angular/material/select';
-import {MatInputModule} from '@angular/material/input';
-import {MatFormFieldModule} from '@angular/material/form-field';
-import {MatTableModule} from '@angular/material/table';
+import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatTableModule } from '@angular/material/table';
 import { HighLowHistoryComponent } from './high-low-history/high-low-history.component';
+import { HomeSummaryReportComponentComponent } from './home-summary-report-component/home-summary-report-component.component';
 
 @NgModule({
   declarations: [
@@ -34,7 +35,8 @@ import { HighLowHistoryComponent } from './high-low-history/high-low-history.com
     WeatherReportDisplayComponent,
     DeviceReportHistoryComponent,
     SettingsComponent,
-    HighLowHistoryComponent
+    HighLowHistoryComponent,
+    HomeSummaryReportComponentComponent
   ],
   imports: [
     BrowserModule,

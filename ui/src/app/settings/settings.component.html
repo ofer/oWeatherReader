@@ -1,23 +1,31 @@
 <div class="grid-container">
     <h1 class="mat-h1">Settings</h1>
-    <mat-grid-list cols="2" rowHeight="450px">
-        <mat-grid-tile [colspan]="2" [rowspan]="1">
-            <mat-card class="dashboard-card">
-                <mat-card-header>
-                    <mat-card-title>
-                        Settings
-                    </mat-card-title>
-                </mat-card-header>
-                <mat-card-content class="setting-card-content">
-                    <mat-label>Choose focused sensor</mat-label>
-                    <mat-selection-list #devicesList (selectionChange)="onSelectionChange($event, devicesList.selectedOptions)">
-                        <mat-list-option *ngFor="let device of devices" [value]="device.deviceModel" [selected]="device.selected">{{device.name}}
-                            ({{device.deviceModel}}) Record
-                            Count:{{device.reportCount}}
-                        </mat-list-option>
-                    </mat-selection-list>
-                </mat-card-content>
-            </mat-card>
-        </mat-grid-tile>
-    </mat-grid-list>
+    <mat-card class="dashboard-card">
+        <mat-card-header>
+            <mat-card-title>
+                Settings
+            </mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="setting-card-content">
+            <mat-label>Choose an indoor sensor</mat-label>
+            <mat-select>
+                <mat-option *ngFor="let device of devices" [value]="device.deviceModel">{{device.name}}
+                    ({{device.deviceModel}}) Record
+                    Count:{{device.reportCount}}</mat-option>
+            </mat-select>
+            <mat-label>Choose an outdoor sensor</mat-label>
+            <mat-select>
+                <mat-option *ngFor="let device of devices" [value]="device.deviceModel">{{device.name}}
+                    ({{device.deviceModel}}) Record
+                    Count:{{device.reportCount}}</mat-option>
+            </mat-select>
+            <mat-selection-list #devicesList (selectionChange)="onSelectionChange($event, devicesList.selectedOptions)">
+                <mat-list-option *ngFor="let device of devices" [value]="device.deviceModel"
+                    [selected]="device.selected">{{device.name}}
+                    ({{device.deviceModel}}) Record
+                    Count:{{device.reportCount}}
+                </mat-list-option>
+            </mat-selection-list>
+        </mat-card-content>
+    </mat-card>
 </div>

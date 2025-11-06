@@ -1,0 +1,8 @@
+<div>
+    <div *ngFor="let report of weatherReports">
+        Time: {{report.Time}}<br>
+        DeviceModel: {{report.DeviceModel}}<br>
+        Temperature: {{report.TemperatureInF}} {{((report.TemperatureInF - 32) * 5/9).toFixed(1)}}<br>
+        HumidityInPercentage: {{report.HumidityInPercentage}}<br>
+    </div>
+</div>
