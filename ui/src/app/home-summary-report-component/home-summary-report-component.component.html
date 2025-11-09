@@ -1,4 +1,25 @@
 <div>
+    <div class="recommendations-section">
+        <h3>HVAC Recommendations</h3>
+        <div *ngIf="recommendations" style="display: flex; flex-direction: row; gap: 8px;">
+            <div>
+                <div class="recommendations-heading">Description</div>
+                <div style="text-align: justify">{{recommendations.WeatherDescription}}</div>
+            </div>
+            <div>
+                <div class="recommendations-heading">Recommendations</div>
+                <div>Air conditioner should be {{recommendations.ShouldOperateAirConditioner? "on": "off"}}</div>
+                <div *ngIf="recommendations.ShouldOperateAirConditioner">
+                    <div>Recommended Temperature: {{recommendations.TemperatureToSetAirConditionerInF}} °F
+                        ({{((recommendations.TemperatureToSetAirConditionerInF - 32) * 5/9).toFixed(1)}} °C)</div>
+                </div>
+                <div>Window should be {{recommendations.ShouldWindowBeOpen ? "open": "closed"}}</div>
+            </div>
+        </div>
+        <div *ngIf="!recommendations">
+            No recommendations available.
+        </div>
+    </div>
     <div *ngFor="let report of weatherReports">
         Time: {{report.Time}}<br>
         DeviceModel: {{report.DeviceModel}}<br>

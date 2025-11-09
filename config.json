@@ -1,0 +1,7 @@
+{
+  "ollamaServerURL": "http://10.0.0.17:11434",
+  "ollamaModel": "gemma3:4b",
+  "indoorDeviceModel": "inFactory-TH",
+  "outdoorDeviceModel": "Bresser-3CH",
+  "recommendationIntervalMinutes": 15
+}

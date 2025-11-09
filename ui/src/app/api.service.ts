@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { WeatherReport } from './weather-report';
+import { HouseHvacRecommendation, WeatherReport } from './weather-report';
 import { DeviceModel } from './device-model';
 import { HttpClient } from '@angular/common/http';
 import { Observable, delay, interval, retry, retryWhen, switchMap, takeWhile, tap, timer } from 'rxjs';
@@ -14,6 +14,10 @@ export class ApiService {
 
   getModels():Observable<DeviceModel[]>{
     return this.http.get<DeviceModel[]>('./models');
+  }
+
+  getLatestRecommendedReport(): Observable<HouseHvacRecommendation> {
+    return this.http.get<HouseHvacRecommendation>('./recommendations/latest');
   }
 
   latestReportObserver: Observable<WeatherReport>;

@@ -1,4 +1,4 @@
 cd ui
-ng build -c development
+ng build --base-href=/weather/ -c development
 cd ..
 go run .
