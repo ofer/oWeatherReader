@@ -1,6 +1,6 @@
 {
   "ollamaServerURL": "http://10.0.0.17:11434",
-  "ollamaModel": "gemma3:4b",
+  "ollamaModel": "deepseek-r1:1.5b",
   "indoorDeviceModel": "inFactory-TH",
   "outdoorDeviceModel": "Bresser-3CH",
   "recommendationIntervalMinutes": 15
