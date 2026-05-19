@@ -14,7 +14,7 @@ import (
 // rtlMonitor monitors RTL-SDR device for weather data using rtl_433
 func rtlMonitor(db *gorm.DB) {
 	fmt.Println("Running rtl_433")
-	command := exec.Command("/usr/bin/rtl_433", "-f", "433000000", "-F", "json", "-M", "time:iso:utc:tz")
+	command := exec.Command("/home/ofer/repos/rtl_433/build/src/rtl_433", "-f", "433000000", "-F", "json", "-M", "time:iso:utc:tz")
 	stdout, err := command.StdoutPipe()
 
 	reader := bufio.NewReader(stdout)

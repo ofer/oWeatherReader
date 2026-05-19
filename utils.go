@@ -24,3 +24,16 @@ func loadConfig() error {
 	decoder := json.NewDecoder(file)
 	return decoder.Decode(&config)
 }
+
+// saveConfig saves the current configuration to config.json file
+func saveConfig() error {
+	file, err := os.Create("config.json")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(&config)
+}

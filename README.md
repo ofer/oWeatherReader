@@ -19,8 +19,12 @@ The system now queries an Ollama server every 15 minutes (configurable) to get A
 
 ### Configuration
 
-Edit `config.json` to configure the Ollama integration:
+Configuration can be managed in two ways:
 
+1. **Static Configuration**: Edit `config.json` file (loaded at startup)
+2. **Dynamic Configuration**: Use the API endpoints to update configuration at runtime
+
+Configuration schema:
 ```json
 {
   "ollamaServerURL": "http://localhost:11434",
@@ -31,12 +35,40 @@ Edit `config.json` to configure the Ollama integration:
 }
 ```
 
+#### Dynamic Configuration Updates
+
+You can now update the configuration without restarting the service:
+
+```bash
+# Get current configuration
+curl http://localhost:6656/config
+
+# Update configuration
+curl -X POST http://localhost:6656/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ollamaServerURL": "http://localhost:11434",
+    "ollamaModel": "llama3.2:1b",
+    "indoorDeviceModel": "New-Indoor-Sensor",
+    "outdoorDeviceModel": "New-Outdoor-Sensor",
+    "recommendationIntervalMinutes": 30
+  }'
+```
+
+**Features of Dynamic Updates:**
+- Changes take effect immediately
+- Configuration is automatically saved to `config.json`
+- If recommendation interval changes, the worker is automatically restarted
+- Validation ensures all required fields are provided
+
 ### API Endpoints
 
 - `GET /reports/latest` - Get the latest weather report
 - `GET /reports/:model` - Get weather reports for a specific device model
 - `GET /models` - Get all device models with report counts
-- `GET /recommendations/latest` - **NEW** Get the latest AI recommendation
+- `GET /recommendations/latest` - Get the latest AI recommendation
+- `GET /config` - **NEW** Get current configuration
+- `POST /config` - **NEW** Update configuration dynamically
 
 ### Ollama Response Format
 

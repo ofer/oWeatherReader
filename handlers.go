@@ -44,6 +44,14 @@ func setupRouter(db *gorm.DB) *gin.Engine {
 		getLatestRecommendation(c, db)
 	})
 
+	r.GET("/config", func(c *gin.Context) {
+		getConfig(c)
+	})
+
+	r.POST("/config", func(c *gin.Context) {
+		updateConfig(c)
+	})
+
 	return r
 }
 
@@ -92,4 +100,57 @@ func getLatestRecommendation(c *gin.Context, db *gorm.DB) {
 		return
 	}
 	c.JSON(http.StatusOK, recommendation)
+}
+
+// getConfig handles GET /config
+func getConfig(c *gin.Context) {
+	c.JSON(http.StatusOK, config)
+}
+
+// updateConfig handles POST /config
+func updateConfig(c *gin.Context) {
+	var newConfig Config
+	if err := c.ShouldBindJSON(&newConfig); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON format"})
+		return
+	}
+
+	// Validate required fields
+	if newConfig.OllamaServerURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "OllamaServerURL is required"})
+		return
+	}
+	if newConfig.OllamaModel == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "OllamaModel is required"})
+		return
+	}
+	if newConfig.IndoorDeviceModel == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "IndoorDeviceModel is required"})
+		return
+	}
+	if newConfig.OutdoorDeviceModel == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "OutdoorDeviceModel is required"})
+		return
+	}
+	if newConfig.RecommendationIntervalMinutes <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "RecommendationIntervalMinutes must be greater than 0"})
+		return
+	}
+
+	// Update the global config
+	oldInterval := config.RecommendationIntervalMinutes
+	config = newConfig
+
+	// Save to file
+	if err := saveConfig(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save configuration"})
+		return
+	}
+
+	// If recommendation interval changed, restart the recommendation worker
+	if oldInterval != newConfig.RecommendationIntervalMinutes {
+		restartRecommendationWorker()
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Configuration updated successfully", "config": config})
 }
