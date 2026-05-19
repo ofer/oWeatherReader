@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -31,8 +33,9 @@ func queryOllamaForRecommendation(db *gorm.DB) (*OllamaRecommendation, error) {
 
 	// Create prompt for Ollama
 	prompt := fmt.Sprintf(`You are a smart home automation assistant. Based on the current weather conditions, provide recommendations for air conditioning and window management.
+	Windows should never be open when the air conditioner is operating and the air conditioner should not operate if the windows are open.
 
-Current conditions:
+Current weather conditions:
 - Indoor temperature: %.1f°F (%.1f%% humidity)
 - Outdoor temperature: %.1f°F (%.1f%% humidity)
 - Time: %s
@@ -117,8 +120,19 @@ Consider factors like:
 	return result_rec, nil
 }
 
+var (
+	recommendationWorkerCancel context.CancelFunc
+	recommendationWorkerMutex  sync.Mutex
+)
+
 // ollamaRecommendationWorker runs periodically to get AI recommendations
 func ollamaRecommendationWorker(db *gorm.DB) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	recommendationWorkerMutex.Lock()
+	recommendationWorkerCancel = cancel
+	recommendationWorkerMutex.Unlock()
+
 	ticker := time.NewTicker(time.Duration(config.RecommendationIntervalMinutes) * time.Minute)
 	defer ticker.Stop()
 
@@ -133,15 +147,38 @@ func ollamaRecommendationWorker(db *gorm.DB) {
 			recommendation.ShouldWindowBeOpen)
 	}
 
-	for range ticker.C {
-		log.Println("Querying Ollama for recommendations...")
-		if recommendation, err := queryOllamaForRecommendation(db); err != nil {
-			log.Printf("Failed to get Ollama recommendation: %v", err)
-		} else {
-			log.Printf("New recommendation: AC=%v, Temp=%d°F, Window=%v",
-				recommendation.ShouldOperateAirConditioner,
-				recommendation.TemperatureToSetAirConditionerInF,
-				recommendation.ShouldWindowBeOpen)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Recommendation worker stopped")
+			return
+		case <-ticker.C:
+			log.Println("Querying Ollama for recommendations...")
+			if recommendation, err := queryOllamaForRecommendation(db); err != nil {
+				log.Printf("Failed to get Ollama recommendation: %v", err)
+			} else {
+				log.Printf("New recommendation: AC=%v, Temp=%d°F, Window=%v",
+					recommendation.ShouldOperateAirConditioner,
+					recommendation.TemperatureToSetAirConditionerInF,
+					recommendation.ShouldWindowBeOpen)
+			}
 		}
 	}
+}
+
+// restartRecommendationWorker stops the current worker and starts a new one with updated config
+func restartRecommendationWorker() {
+	recommendationWorkerMutex.Lock()
+	defer recommendationWorkerMutex.Unlock()
+
+	if recommendationWorkerCancel != nil {
+		log.Println("Stopping current recommendation worker...")
+		recommendationWorkerCancel()
+		// Give it a moment to stop
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	log.Println("Starting new recommendation worker with updated config...")
+	// Note: We need access to the database here, so we'll need to store it globally
+	go ollamaRecommendationWorker(globalDB)
 }

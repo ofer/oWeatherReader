@@ -3,7 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+
+	"gorm.io/gorm"
 )
+
+// Global database instance for dynamic config updates
+var globalDB *gorm.DB
 
 // main is the entry point of the application
 func main() {
@@ -15,6 +20,8 @@ func main() {
 	}
 
 	db := setupDatabase()
+	globalDB = db // Store globally for dynamic config updates
+
 	go rtlMonitor(db)
 	go ollamaRecommendationWorker(db)
 
