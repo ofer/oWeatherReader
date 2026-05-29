@@ -101,8 +101,9 @@ func (hub *EventHub) unregister(id uint64) {
 func (hub *EventHub) Shutdown() {
 	close(hub.done)
 	hub.mu.Lock()
-	for id := range hub.clients {
-		hub.unregister(id)
+	for id, ch := range hub.clients {
+		close(ch)
+		delete(hub.clients, id)
 	}
 	hub.mu.Unlock()
 }
