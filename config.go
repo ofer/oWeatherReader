@@ -2,8 +2,9 @@ package main
 
 // Config represents the application configuration
 type Config struct {
-	OllamaServerURL               string `json:"ollamaServerURL"`
-	OllamaModel                   string `json:"ollamaModel"`
+	OpenAIBaseURL                 string `json:"openAIBaseURL"`
+	OpenAIModel                   string `json:"openAIModel"`
+	OpenAIAPIKey                  string `json:"openAIAPIKey"`
 	IndoorDeviceModel             string `json:"indoorDeviceModel"`
 	OutdoorDeviceModel            string `json:"outdoorDeviceModel"`
 	RecommendationIntervalMinutes int    `json:"recommendationIntervalMinutes"`
