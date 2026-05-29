@@ -1,6 +1,7 @@
 {
-  "ollamaServerURL": "http://10.0.0.17:11434",
-  "ollamaModel": "gemma4:26b",
+  "openAIBaseURL": "http://10.0.0.17:11434",
+  "openAIModel": "gemma-4-26B-A4B-it-Q4_K_M",
+  "openAIAPIKey": "",
   "indoorDeviceModel": "inFactory-TH",
   "outdoorDeviceModel": "Bresser-3CH",
   "recommendationIntervalMinutes": 15
