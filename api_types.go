@@ -49,3 +49,10 @@ type Rtl433WeatherReport struct {
 	Button        *uint8
 	Mic           string
 }
+
+// WeatherReportEvent represents a server-sent event when a new weather report is accepted
+type WeatherReportEvent struct {
+	DbId        uint   `json:"dbId"`
+	Time        int64  `json:"time"`
+	DeviceModel string `json:"deviceModel"`
+}

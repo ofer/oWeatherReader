@@ -12,7 +12,7 @@ import (
 )
 
 // rtlMonitor monitors RTL-SDR device for weather data using rtl_433
-func rtlMonitor(db *gorm.DB) {
+func rtlMonitor(db *gorm.DB, hub *EventHub) {
 	fmt.Println("Running rtl_433")
 	command := exec.Command("/home/ofer/repos/rtl_433/build/src/rtl_433", "-f", "433000000", "-F", "json", "-M", "time:iso:utc:tz")
 	stdout, err := command.StdoutPipe()
@@ -99,7 +99,14 @@ func rtlMonitor(db *gorm.DB) {
 		}
 
 		if !shouldIgnoreReport {
-			db.Create(&weatherReport)
+			result := db.Create(&weatherReport)
+			if result.Error == nil {
+				hub.Broadcast(WeatherReportEvent{
+					DbId:        weatherReport.DbId,
+					Time:        weatherReport.Time.Unix(),
+					DeviceModel: weatherReport.DeviceModel,
+				})
+			}
 		}
 
 	}

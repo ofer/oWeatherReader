@@ -11,7 +11,7 @@ import (
 )
 
 // setupRouter configures the HTTP routes
-func setupRouter(db *gorm.DB) *gin.Engine {
+func setupRouter(db *gorm.DB, hub *EventHub) *gin.Engine {
 	// Disable Console Color
 	// gin.DisableConsoleColor()
 	r := gin.Default()
@@ -36,6 +36,10 @@ func setupRouter(db *gorm.DB) *gin.Engine {
 		getWeatherReportsByModel(c, db)
 	})
 
+	r.GET("/reports/events", func(c *gin.Context) {
+		handleReportEvents(c, hub)
+	})
+
 	r.GET("/models", func(c *gin.Context) {
 		getModels(c, db)
 	})
@@ -53,6 +57,36 @@ func setupRouter(db *gorm.DB) *gin.Engine {
 	})
 
 	return r
+}
+
+// handleReportEvents handles GET /reports/events using Server-Sent Events
+func handleReportEvents(c *gin.Context, hub *EventHub) {
+	// Set SSE headers
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Flush()
+
+	// Register this client with the event hub
+	clientID, messageCh := hub.register()
+
+	// Ensure cleanup on request completion
+	defer hub.unregister(clientID)
+
+	ctx := c.Request.Context()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg, ok := <-messageCh:
+			if !ok {
+				return
+			}
+			c.Writer.Write([]byte(msg))
+			c.Writer.Flush()
+		}
+	}
 }
 
 // getLatestWeatherReport handles GET /reports/latest
