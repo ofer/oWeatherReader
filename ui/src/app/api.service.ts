@@ -1,9 +1,14 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Optional, SkipSelf, InjectionToken, Inject } from '@angular/core';
 import { HouseHvacRecommendation, WeatherReport } from './weather-report';
 import { DeviceModel } from './device-model';
 import { WeatherReportEvent } from './weather-report-event';
 import { HttpClient } from '@angular/common/http';
-import { Observable, delay, interval, retry, retryWhen, shareReplay, switchMap, takeWhile, tap, timer } from 'rxjs';
+import { Observable, defer, retry, shareReplay, switchMap, timer } from 'rxjs';
+
+export const EVENT_SOURCE_TOKEN = new InjectionToken<typeof EventSource>('EventSource', {
+  providedIn: 'root',
+  factory: () => EventSource
+});
 
 @Injectable({
   providedIn: 'root'
@@ -25,32 +30,41 @@ export class ApiService {
 
   private weatherReportEventsSubject: Observable<WeatherReportEvent>;
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient,
+              @Optional() @SkipSelf() private parent: ApiService,
+              @Optional() @Inject(EVENT_SOURCE_TOKEN) private EventSourceTok: typeof EventSource) {
+    if (parent) {
+      throw new Error('ApiService cannot be instantiated more than once.');
+    }
+
     this.latestReportObserver = timer(0, 30000).pipe(
       switchMap(() => this.http.get<WeatherReport>('./reports/latest').pipe(
         retry({ delay: 30000 })
       ))
     );
 
-    this.weatherReportEventsSubject = new Observable<WeatherReportEvent>(observer => {
-      const eventSource = new EventSource('./reports/events');
+    this.weatherReportEventsSubject = defer(() => {
+      const EventSourceCtor = this.EventSourceTok || (typeof EventSource !== 'undefined' ? EventSource : null);
+      const eventSource = new EventSourceCtor!('./reports/events');
 
-      eventSource.onmessage = (event) => {
-        try {
-          const parsed = JSON.parse(event.data) as WeatherReportEvent;
-          observer.next(parsed);
-        } catch (err) {
-          observer.error(err);
-        }
-      };
+      return new Observable<WeatherReportEvent>(observer => {
+        eventSource.onmessage = (event: MessageEvent) => {
+          try {
+            const parsed = JSON.parse(event.data) as WeatherReportEvent;
+            observer.next(parsed);
+          } catch (err) {
+            observer.error(err);
+          }
+        };
 
-      eventSource.onerror = (event) => {
-        observer.error(event);
-      };
+        eventSource.onerror = (event: Event) => {
+          observer.error(event);
+        };
 
-      return () => {
-        eventSource.close();
-      };
+        return () => {
+          eventSource.close();
+        };
+      });
     }).pipe(
       shareReplay({ bufferSize: 1, refCount: true })
     );

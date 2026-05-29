@@ -1,42 +1,50 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { ApiService } from '../api.service';
 import { EChartsOption } from 'echarts';
 import { WeatherReport } from '../weather-report';
+import { switchMap, takeUntil, Subscription, Subject } from 'rxjs';
 
 @Component({
   selector: 'app-device-report-history',
   templateUrl: './device-report-history.component.html',
   styleUrls: ['./device-report-history.component.scss']
 })
-export class DeviceReportHistoryComponent {
+export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
 
-  private data: DataT[];
-  private humidityData: DataH[];
+  data: DataT[];
+  humidityData: DataH[];
   private DAYS_OF_HISTORY = 3;
 
   options: EChartsOption;
   updateOptions: EChartsOption;
 
+  currentModel: string | null = null;
+  private subscriptions = new Subscription();
+  private destroy$ = new Subject<void>();
+
   @Input()
   set deviceModel(value: string | null) {
     if (value != null) {
-      // Call API to get data for the new device model
-      this.api.getHistoricDataForDeviceModel(value).subscribe(historicWeatherReports => {
-        // Update chart data with new data
-        this.data = this.convertToTemperatureData(historicWeatherReports);
-        this.humidityData = this.convertToHumidityData(historicWeatherReports);
-        this.updateOptions = {
-          series: [
-            {
-              data: this.data,
-            },
-            {
-              data: this.humidityData
-            }
-          ],
-        };
-      });
+      this.currentModel = value;
+      this.loadHistory(value);
     }
+  }
+
+  private loadHistory(model: string): void {
+    this.api.getHistoricDataForDeviceModel(model).subscribe(historicWeatherReports => {
+      this.data = this.convertToTemperatureData(historicWeatherReports);
+      this.humidityData = this.convertToHumidityData(historicWeatherReports);
+      this.updateOptions = {
+        series: [
+          {
+            data: this.data,
+          },
+          {
+            data: this.humidityData
+          }
+        ],
+      };
+    });
   }
 
   convertToTemperatureData(historicWeatherReports: WeatherReport[]): DataT[] {
@@ -75,19 +83,6 @@ export class DeviceReportHistoryComponent {
       },
       tooltip: {
         trigger: 'axis',
-        // formatter: params => {
-        //   params = params[0];
-        //   const date = new Date(params.name);
-        //   return (
-        //     date.getDate() +
-        //     '/' +
-        //     (date.getMonth() + 1) +
-        //     '/' +
-        //     date.getFullYear() +
-        //     ' : ' +
-        //     params.value[1]
-        //   );
-        // },
         axisPointer: {
           animation: false,
         },
@@ -134,15 +129,38 @@ export class DeviceReportHistoryComponent {
   }
 
   ngOnInit(): void {
-    // // Mock dynamic data:
-    // this.timer = setInterval(() => {
-    //   for (let i = 0; i < 5; i++) {
-    //     this.data.shift();
-    //     this.data.push(this.randomData());
-    //   }
+    const eventSubscription = this.api.weatherReportEvents$
+      .pipe(
+        switchMap(event => {
+          if (event.deviceModel === this.currentModel) {
+            return this.api.getHistoricDataForDeviceModel(this.currentModel!);
+          }
+          return [];
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(historicWeatherReports => {
+        this.data = this.convertToTemperatureData(historicWeatherReports);
+        this.humidityData = this.convertToHumidityData(historicWeatherReports);
+        this.updateOptions = {
+          series: [
+            {
+              data: this.data,
+            },
+            {
+              data: this.humidityData
+            }
+          ],
+        };
+      });
 
-    //   // update series data:
-    // }, 1000);
+    this.subscriptions.add(eventSubscription);
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.subscriptions.unsubscribe();
   }
 }
 
