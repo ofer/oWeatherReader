@@ -23,7 +23,7 @@ func main() {
 	globalDB = db // Store globally for dynamic config updates
 
 	go rtlMonitor(db)
-	go ollamaRecommendationWorker(db)
+	go recommendationWorker(db)
 
 	r := setupRouter(db)
 	// Listen and Server in 0.0.0.0:8080
