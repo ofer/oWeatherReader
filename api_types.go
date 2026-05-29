@@ -4,22 +4,32 @@ import (
 	"time"
 )
 
-// OllamaRequest represents a request to the Ollama AI service
-type OllamaRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
-	Stream bool   `json:"stream"`
+// OpenAIChatMessage represents a single message in an OpenAI chat completion request
+type OpenAIChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
-// OllamaResponse represents a response from the Ollama AI service
-type OllamaResponse struct {
-	Model    string `json:"model"`
-	Response string `json:"response"`
-	Done     bool   `json:"done"`
+// OpenAIChatRequest represents a request to the OpenAI chat completions API
+type OpenAIChatRequest struct {
+	Model    string              `json:"model"`
+	Messages []OpenAIChatMessage `json:"messages"`
 }
 
-// OllamaRecommendationResponse represents the structured response from Ollama for climate recommendations
-type OllamaRecommendationResponse struct {
+// OpenAIChatChoice represents a single choice in the OpenAI chat completion response
+type OpenAIChatChoice struct {
+	Index   int               `json:"index"`
+	Message OpenAIChatMessage `json:"message"`
+}
+
+// OpenAIChatResponse represents a response from the OpenAI chat completions API
+type OpenAIChatResponse struct {
+	ID      string             `json:"id"`
+	Choices []OpenAIChatChoice `json:"choices"`
+}
+
+// AIRecommendationResponse represents the structured response from the AI for climate recommendations
+type AIRecommendationResponse struct {
 	ShouldOperateAirConditioner       bool   `json:"shouldOperateAirConditioner"`
 	TemperatureToSetAirConditionerInF int    `json:"temperatureToSetAirConditionerInF"`
 	ShouldWindowBeOpen                bool   `json:"shouldWindowBeOpen"`

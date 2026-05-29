@@ -11,8 +11,9 @@ func loadConfig() error {
 	if err != nil {
 		// Create default config if it doesn't exist
 		config = Config{
-			OllamaServerURL:               "http://localhost:11434",
-			OllamaModel:                   "llama3.2",
+			OpenAIBaseURL:                 "https://api.openai.com",
+			OpenAIModel:                   "gpt-4o-mini",
+			OpenAIAPIKey:                  "",
 			IndoorDeviceModel:             "LaCrosse-TX141W",
 			OutdoorDeviceModel:            "LaCrosse-TX141W",
 			RecommendationIntervalMinutes: 15,

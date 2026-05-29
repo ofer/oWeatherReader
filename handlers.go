@@ -116,12 +116,12 @@ func updateConfig(c *gin.Context) {
 	}
 
 	// Validate required fields
-	if newConfig.OllamaServerURL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "OllamaServerURL is required"})
+	if newConfig.OpenAIBaseURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "OpenAIBaseURL is required"})
 		return
 	}
-	if newConfig.OllamaModel == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "OllamaModel is required"})
+	if newConfig.OpenAIModel == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "OpenAIModel is required"})
 		return
 	}
 	if newConfig.IndoorDeviceModel == "" {
