@@ -1,6 +1,6 @@
 {
   "openAIBaseURL": "http://10.0.0.17:11434",
-  "openAIModel": "gemma-4-26B-A4B-it-Q4_K_M",
+  "openAIModel": "Qwen3.6-35B-A3B-UD-Q4_K_XL",
   "openAIAPIKey": "",
   "indoorDeviceModel": "inFactory-TH",
   "outdoorDeviceModel": "Bresser-3CH",

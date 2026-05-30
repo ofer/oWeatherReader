@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 
 import { HomeSummaryReportComponentComponent } from './home-summary-report-component.component';
 
@@ -8,7 +9,8 @@ describe('HomeSummaryReportComponentComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      declarations: [HomeSummaryReportComponentComponent]
+      declarations: [HomeSummaryReportComponentComponent],
+      imports: [HttpClientTestingModule]
     });
     fixture = TestBed.createComponent(HomeSummaryReportComponentComponent);
     component = fixture.componentInstance;

@@ -5,6 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatGridListModule } from '@angular/material/grid-list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 
 import { LatestReportsComponent } from './latest-reports.component';
 
@@ -22,6 +23,7 @@ describe('LatestReportsComponent', () => {
         MatGridListModule,
         MatIconModule,
         MatMenuModule,
+        HttpClientTestingModule,
       ]
     }).compileComponents();
   }));

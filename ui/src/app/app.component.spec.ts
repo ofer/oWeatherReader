@@ -1,10 +1,24 @@
 import { TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatIconModule } from '@angular/material/icon';
+import { MatListModule } from '@angular/material/list';
+import { CommonModule } from '@angular/common';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { AppComponent } from './app.component';
 
 describe('AppComponent', () => {
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [RouterTestingModule],
+    imports: [
+      RouterTestingModule,
+      MatSidenavModule,
+      MatToolbarModule,
+      MatIconModule,
+      MatListModule,
+      CommonModule,
+      NoopAnimationsModule,
+    ],
     declarations: [AppComponent]
   }));
 
@@ -24,6 +38,6 @@ describe('AppComponent', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.content span')?.textContent).toContain('ui app is running!');
+    expect(compiled.querySelector('mat-toolbar span')?.textContent).toContain('oWeatherReader');
   });
 });
