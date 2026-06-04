@@ -170,4 +170,83 @@ describe('DeviceReportHistoryComponent', () => {
     expect(component.data.length).toBe(0);
     expect(component.humidityData.length).toBe(0);
   }));
+
+  it('convertToTemperatureData produces 2-element tuples [timeString, temperature]', fakeAsync(() => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const reports: WeatherReport[] = [
+      { DbId: 1, Time: yesterday, DeviceModel: 'Bresser-3CH', TemperatureInF: 65, HumidityInPercentage: 40 },
+      { DbId: 2, Time: now, DeviceModel: 'Bresser-3CH', TemperatureInF: 72, HumidityInPercentage: 45 },
+    ];
+
+    component.deviceModel = 'Bresser-3CH';
+    tick();
+
+    mockApi.historicDataSubject.next(reports);
+    tick();
+
+    expect(component.data.length).toBe(2);
+    const point72 = component.data.find(d => d.value[1] === 72);
+    expect(point72).toBeDefined();
+    expect(point72!.value[0]).toBeDefined();
+    expect(point72!.value[1]).toBe(72);
+    // DataT is a 2-element tuple [string, number], no third element
+    expect((point72!.value as unknown as any[]).length).toBe(2);
+  }));
+
+  it('convertToTemperatureData produces tuples with correct values for each report', fakeAsync(() => {
+    const now = new Date();
+    const reports: WeatherReport[] = [
+      { DbId: 1, Time: now, DeviceModel: 'Bresser-3CH', TemperatureInF: 72, HumidityInPercentage: 45 },
+    ];
+
+    component.deviceModel = 'Bresser-3CH';
+    tick();
+
+    mockApi.historicDataSubject.next(reports);
+    tick();
+
+    expect(component.data.length).toBe(1);
+    expect(component.data[0].value[0]).toBeDefined();
+    expect(component.data[0].value[1]).toBe(72);
+  }));
+
+  it('formatTooltip includes yesterday line when yesterday temp exists', () => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const params: any[] = [
+      { seriesName: 'Temperature Data', data: { value: [now.toISOString(), 72.5] } },
+      { seriesName: 'Humidity Data', data: { value: [now.toISOString(), 45] } },
+    ];
+
+    // Provide a 24h-prior report within range so findYesterdayTemp returns a value
+    component.rawData = [
+      { DbId: 1, Time: yesterday, DeviceModel: 'Bresser-3CH', TemperatureInF: 65.3, HumidityInPercentage: 40 },
+    ];
+
+    const result = component.formatTooltip(params);
+
+    expect(result).toContain('Yesterday Temp°F:');
+    expect(result).toContain('Temp:');
+  });
+
+  it('formatTooltip omits yesterday line when no yesterday temp match exists', () => {
+    const params: any[] = [
+      { seriesName: 'Temperature Data', data: { value: ['2024-01-01T10:00:00.000Z', 72.5] } },
+      { seriesName: 'Humidity Data', data: { value: ['2024-01-01T10:00:00.000Z', 45] } },
+    ];
+
+    // Provide a recent report that doesn't match 24h prior within the 2h tolerance
+    const now = new Date();
+    const justNow = new Date(now.getTime() - 30 * 60 * 1000);
+    component.rawData = [
+      { DbId: 1, Time: justNow, DeviceModel: 'Bresser-3CH', TemperatureInF: 65.3, HumidityInPercentage: 40 },
+    ];
+
+    const result = component.formatTooltip(params);
+
+    expect(result).toContain('Temp:');
+    expect(result).not.toContain('Yesterday Temp°F:');
+  });
 });

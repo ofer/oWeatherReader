@@ -13,6 +13,7 @@ export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
 
   data: DataT[];
   humidityData: DataH[];
+  rawData: WeatherReport[];
   private DAYS_OF_HISTORY = 3;
 
   options: EChartsOption;
@@ -32,6 +33,7 @@ export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
 
   private loadHistory(model: string): void {
     this.api.getHistoricDataForDeviceModel(model).subscribe(historicWeatherReports => {
+      this.rawData = historicWeatherReports;
       this.data = this.convertToTemperatureData(historicWeatherReports);
       this.humidityData = this.convertToHumidityData(historicWeatherReports);
       this.updateOptions = {
@@ -56,6 +58,22 @@ export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
     });
   }
 
+  private findYesterdayTemp(reportTime: Date, reports: WeatherReport[]): number | null {
+    const yesterday = new Date(new Date(reportTime).getTime() - 24 * 60 * 60 * 1000);
+    let closest: WeatherReport | null = null;
+    let closestDiff = Infinity;
+    for (const report of reports) {
+      if (!this.isReportInRange(report)) continue;
+      const reportTimeMs = new Date(report.Time).getTime();
+      const diff = Math.abs(reportTimeMs - yesterday.getTime());
+      if (diff < closestDiff) {
+        closestDiff = diff;
+        closest = report;
+      }
+    }
+    return closest !== null && closestDiff < 2 * 60 * 60 * 1000 ? closest.TemperatureInF : null;
+  }
+
   convertToHumidityData(historicWeatherReports: WeatherReport[]): DataH[] {
     return historicWeatherReports.filter(report => this.isReportInRange(report)).map(report => {
       return {
@@ -72,9 +90,30 @@ export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
     return reportDate >= oldestUseableDate;
   }
 
+  formatTooltip(params: any[]): string {
+    let result = '';
+    const tempSeries = params.find((p: any) => p?.seriesName === 'Temperature Data');
+    const humiditySeries = params.find((p: any) => p?.seriesName === 'Humidity Data');
+    if (tempSeries) {
+      const value = tempSeries?.data?.value as number[] | undefined;
+      const humidityValue = humiditySeries?.data?.value as number[] | 'unknown';
+      if (value == undefined)
+      	return 'unknown';
+      let time = new Date(value[0]);
+      let yesterdayTemp = this.findYesterdayTemp(time, this.rawData);
+      if (yesterdayTemp) {
+        result = `${value[0]}<br/>Temp: ${value[1]}°F, Humidity ${humidityValue[1]}%<br/>Yesterday Temp°F: ${yesterdayTemp}°F`;
+      } else {
+        result = `${value?.[0] ?? ''}<br/>Temp: ${value?.[1] ?? ''}°F Humidity ${humidityValue[1]}%`;
+      }
+    }
+    return result;
+  }
+
   constructor(private api: ApiService) {
     this.data = [];
     this.humidityData = [];
+    this.rawData = [];
 
     // initialize chart options:
     this.options = {
@@ -86,7 +125,8 @@ export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
         axisPointer: {
           animation: false,
         },
-      },
+        formatter: this.formatTooltip.bind(this),
+      } as any,
       xAxis: {
         type: 'time',
         splitLine: {
@@ -105,7 +145,7 @@ export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
           name: 'Temperature Data',
           type: 'line',
           showSymbol: false,
-          data: this.data,
+          data: this.data as any,
         },
         {
           name: 'Humidity Data',
