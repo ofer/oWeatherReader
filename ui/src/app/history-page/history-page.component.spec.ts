@@ -147,10 +147,144 @@ describe('HistoryPageComponent', () => {
     const option = (component as any).buildTempChartFor(mockAggregates, 'Indoor');
     expect(option.series).toBeDefined();
     expect(option.series.length).toBe(5);
-    expect(option.series[0].name).toBe('Indoor Avg');
-    expect(option.series[1].name).toBe('Indoor High');
-    expect(option.series[2].name).toBe('Indoor Low');
-    expect(option.series[3].name).toBe('Indoor Avg High');
-    expect(option.series[4].name).toBe('Indoor Avg Low');
+    // Series order in buildTempChartFor: High, Avg High, Avg, Avg Low, Low
+    expect(option.series[0].name).toBe('Indoor High');
+    expect(option.series[1].name).toBe('Indoor Avg High');
+    expect(option.series[2].name).toBe('Indoor Avg');
+    expect(option.series[3].name).toBe('Indoor Avg Low');
+    expect(option.series[4].name).toBe('Indoor Low');
+  });
+});
+
+describe('HistoryPageComponent loading with no outdoor sensor', () => {
+  let component: HistoryPageComponent;
+  let fixture: ComponentFixture<HistoryPageComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [HistoryPageComponent],
+      imports: [
+        HttpClientTestingModule,
+        MatSelectModule,
+        MatFormFieldModule,
+        MatProgressBarModule,
+        MatCardModule,
+        MatIconModule,
+        MatTableModule,
+        NgxEchartsModule.forRoot({ echarts: () => import('echarts') }),
+        NgIf,
+        NgFor,
+        NoopAnimationsModule
+      ],
+      providers: [
+        {
+          provide: ApiService,
+          useValue: {
+            getDailyAggregates: (models: string[]) => of([
+              {
+                date: '2026-01-01', model: 'indoor', avgTemp: 72, highTemp: 78, lowTemp: 65,
+                avgHumidity: 50, highHumidity: 70, lowHumidity: 30, modelName: 'Indoor Sensor'
+              }
+            ] as DailyAgg[])
+          }
+        },
+        {
+          provide: SettingsService,
+          useValue: {
+            getIndoorDeviceModel: () => 'indoor-sensor',
+            getOutdoorDeviceModel: () => null
+          }
+        }
+      ]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(HistoryPageComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should have indoor but no outdoor sensor configured', () => {
+    expect(component.monitoringIndoor).toEqual(['indoor-sensor']);
+    expect(component.monitoringOutdoor).toEqual([]);
+  });
+
+  it('should not be stuck in loading state after init with only indoor sensor', () => {
+    expect(component.loading).toBeFalse();
+    expect(component.indoorAggregates.length).toBe(1);
+    expect(component.hasIndoorData).toBeTrue();
+  });
+
+  it('should stop loading when loadHistory is called with only indoor sensor', (done: DoneFn) => {
+    component.loading = true;
+    component.loadHistory();
+
+    setTimeout(() => {
+      expect(component.loading).toBeFalse();
+      expect(component.indoorAggregates.length).toBe(1);
+      done();
+    }, 50);
+  });
+});
+
+describe('HistoryPageComponent loading with no sensors', () => {
+  let component: HistoryPageComponent;
+  let fixture: ComponentFixture<HistoryPageComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [HistoryPageComponent],
+      imports: [
+        HttpClientTestingModule,
+        MatSelectModule,
+        MatFormFieldModule,
+        MatProgressBarModule,
+        MatCardModule,
+        MatIconModule,
+        MatTableModule,
+        NgxEchartsModule.forRoot({ echarts: () => import('echarts') }),
+        NgIf,
+        NgFor,
+        NoopAnimationsModule
+      ],
+      providers: [
+        {
+          provide: ApiService,
+          useValue: {
+            getDailyAggregates: () => of([] as DailyAgg[])
+          }
+        },
+        {
+          provide: SettingsService,
+          useValue: {
+            getIndoorDeviceModel: () => null,
+            getOutdoorDeviceModel: () => null
+          }
+        }
+      ]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(HistoryPageComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should have no sensors configured', () => {
+    expect(component.monitoringIndoor).toEqual([]);
+    expect(component.monitoringOutdoor).toEqual([]);
+  });
+
+  it('should not be stuck in loading state after init with no sensors', () => {
+    expect(component.loading).toBeFalse();
+    expect(component.hasAnyData).toBeFalse();
+  });
+
+  it('should stop loading when loadHistory is called with no sensors', (done: DoneFn) => {
+    component.loading = true;
+    component.loadHistory();
+
+    setTimeout(() => {
+      expect(component.loading).toBeFalse();
+      done();
+    }, 50);
   });
 });

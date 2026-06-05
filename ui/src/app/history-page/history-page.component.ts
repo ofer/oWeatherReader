@@ -82,36 +82,38 @@ export class HistoryPageComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.isMonthly = this.daysRange > 90;
 
-    const indoorSub = this.api.getDailyAggregates(this.monitoringIndoor, this.daysRange).subscribe(
-      (data: DailyAgg[]) => {
+    let completed = 0;
+    const total = 2;
+    const checkDone = () => {
+      if (++completed >= total) {
+        this.loading = false;
+      }
+    };
+
+    const indoorSub = this.api.getDailyAggregates(this.monitoringIndoor, this.daysRange).subscribe({
+      next: (data: DailyAgg[]) => {
         this.indoorAggregates = data;
         this.indoorComfortLevels = this.calculateComfortLevels(data);
         this.indoorTempChartOption = this.buildTempChartFor(data, 'Indoor');
         this.indoorHumidityChartOption = this.buildHumidityChartFor(data, 'Indoor');
-        this.loading = this.indoorAggregates.length === 0 || this.checkOutdoorLoaded();
       },
-      () => { this.loading = this.checkOutdoorLoaded(); }
-    );
+      error: () => {},
+      complete: checkDone
+    });
 
-    const outdoorSub = this.api.getDailyAggregates(this.monitoringOutdoor, this.daysRange).subscribe(
-      (data: DailyAgg[]) => {
+    const outdoorSub = this.api.getDailyAggregates(this.monitoringOutdoor, this.daysRange).subscribe({
+      next: (data: DailyAgg[]) => {
         this.outdoorAggregates = data;
         this.outdoorComfortLevels = this.calculateComfortLevels(data);
         this.outdoorTempChartOption = this.buildTempChartFor(data, 'Outdoor');
         this.outdoorHumidityChartOption = this.buildHumidityChartFor(data, 'Outdoor');
-        this.loading = false;
       },
-      () => {
-        this.loading = false;
-      }
-    );
+      error: () => {},
+      complete: checkDone
+    });
 
     this.subscriptions.add(indoorSub);
     this.subscriptions.add(outdoorSub);
-  }
-
-  private checkOutdoorLoaded(): boolean {
-    return this.monitoringOutdoor.length > 0;
   }
 
   calculateComfortLevels(aggregates: DailyAgg[]): ComfortLevel[] {
