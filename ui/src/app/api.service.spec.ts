@@ -142,7 +142,7 @@ describe('ApiService', () => {
 
   it('getModels calls the models endpoint', () => {
     const models: DeviceModel[] = [
-      { DeviceModel: 'Bresser-3CH', ReportCount: 100, Name: 'Bresser 3 Channel Weather Station' }
+      { DeviceModel: 'Bresser-3CH', ReportCount: 100, Name: 'Bresser 3 Channel Weather Station', isIndoor: false, isOutdoor: false }
     ];
 
     service.getModels().subscribe(data => {

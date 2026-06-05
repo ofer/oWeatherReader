@@ -10,6 +10,22 @@ export const EVENT_SOURCE_TOKEN = new InjectionToken<typeof EventSource>('EventS
   factory: () => EventSource
 });
 
+export interface DailyAgg {
+  date: string;
+  model: string;
+  avgTemp: number;
+  highTemp: number;
+  lowTemp: number;
+  avgHighTemp?: number;
+  avgLowTemp?: number;
+  avgHumidity: number;
+  avgHighHumidity?: number;
+  avgLowHumidity?: number;
+  highHumidity: number;
+  lowHumidity: number;
+  modelName: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -18,8 +34,20 @@ export class ApiService {
     return this.http.get<WeatherReport[]>(`./reports/${deviceModel}`)
   }
 
-  getModels():Observable<DeviceModel[]>{
+  getDailyAggregates(models: string[], days: number): Observable<DailyAgg[]> {
+    const params = new URLSearchParams({ days: String(days) });
+    if (models.length > 0) {
+      params.set('models', models.join(','));
+    }
+    return this.http.get<DailyAgg[]>(`./reports/history?${params.toString()}`)
+  }
+
+  getModels(): Observable<DeviceModel[]> {
     return this.http.get<DeviceModel[]>('./models');
+  }
+
+  getConfig(): Observable<any> {
+    return this.http.get<any>('./config');
   }
 
   getLatestRecommendedReport(): Observable<HouseHvacRecommendation> {

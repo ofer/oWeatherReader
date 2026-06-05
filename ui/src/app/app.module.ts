@@ -24,7 +24,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTableModule } from '@angular/material/table';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { HighLowHistoryComponent } from './high-low-history/high-low-history.component';
+import { HistoryPageComponent } from './history-page/history-page.component';
 import { HomeSummaryReportComponentComponent } from './home-summary-report-component/home-summary-report-component.component';
 
 @NgModule({
@@ -36,7 +38,8 @@ import { HomeSummaryReportComponentComponent } from './home-summary-report-compo
     DeviceReportHistoryComponent,
     SettingsComponent,
     HighLowHistoryComponent,
-    HomeSummaryReportComponentComponent
+    HomeSummaryReportComponentComponent,
+    HistoryPageComponent
   ],
   imports: [
     BrowserModule,
@@ -55,6 +58,8 @@ import { HomeSummaryReportComponentComponent } from './home-summary-report-compo
     MatTableModule,
     MatInputModule,
     MatSelectModule,
+    MatProgressBarModule,
+    MatIconModule,
     NgxEchartsModule.forRoot({
       echarts: () => import('echarts')
     })

@@ -90,6 +90,17 @@ export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
     return reportDate >= oldestUseableDate;
   }
 
+ private formatDateLocal(date: Date): string {
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }
+
   formatTooltip(params: any[]): string {
     let result = '';
     const tempSeries = params.find((p: any) => p?.seriesName === 'Temperature Data');
@@ -98,13 +109,14 @@ export class DeviceReportHistoryComponent implements OnInit, OnDestroy {
       const value = tempSeries?.data?.value as number[] | undefined;
       const humidityValue = humiditySeries?.data?.value as number[] | 'unknown';
       if (value == undefined)
-      	return 'unknown';
+       	return 'unknown';
       let time = new Date(value[0]);
+      let localTimeStr = this.formatDateLocal(time);
       let yesterdayTemp = this.findYesterdayTemp(time, this.rawData);
       if (yesterdayTemp) {
-        result = `${value[0]}<br/>Temp: ${value[1]}°F, Humidity ${humidityValue[1]}%<br/>Yesterday Temp°F: ${yesterdayTemp}°F`;
+        result = `${localTimeStr}<br/>Temp: ${value[1]}°F, Humidity ${humidityValue[1]}%<br/>Yesterday Temp°F: ${yesterdayTemp}°F`;
       } else {
-        result = `${value?.[0] ?? ''}<br/>Temp: ${value?.[1] ?? ''}°F Humidity ${humidityValue[1]}%`;
+        result = `${localTimeStr}<br/>Temp: ${value[1]}°F Humidity ${humidityValue[1]}%`;
       }
     }
     return result;

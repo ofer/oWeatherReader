@@ -12,7 +12,12 @@ export class LatestWeatherReporterService {
   private _monitoredDevices: { deviceModel: string; latestReport: WeatherReport | null }[] | null;
 
   constructor(private _api: ApiService, private _settings: SettingsService) {
-    this._monitoredDevices = _settings.getMonitoringDeviceNames()?.map((deviceModel) => { return { deviceModel, latestReport: null } }) || [];
+    const indoor = _settings.getIndoorDeviceModel();
+    const outdoor = _settings.getOutdoorDeviceModel();
+    const devices: string[] = [];
+    if (indoor) devices.push(indoor);
+    if (outdoor) devices.push(outdoor);
+    this._monitoredDevices = devices.map((deviceModel: string) => { return { deviceModel, latestReport: null } });
 
     _api.latestReportObserver.subscribe((report) => {
       let montitoredDevice = this._monitoredDevices?.find((device) => device.deviceModel === report.DeviceModel);

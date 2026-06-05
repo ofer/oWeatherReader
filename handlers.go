@@ -1,9 +1,12 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"net/http"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -54,6 +57,10 @@ func setupRouter(db *gorm.DB, hub *EventHub) *gin.Engine {
 
 	r.POST("/config", func(c *gin.Context) {
 		updateConfig(c)
+	})
+
+	r.GET("/reports/history", func(c *gin.Context) {
+		getDailyAggregates(c, db)
 	})
 
 	return r
@@ -122,7 +129,27 @@ func getModels(c *gin.Context, db *gorm.DB) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve device models"})
 		return
 	}
-	c.JSON(http.StatusOK, deviceModels)
+
+	type ClassifiedDeviceModel struct {
+		DeviceModel string `json:"DeviceModel"`
+		ReportCount uint8  `json:"ReportCount"`
+		Name        string `json:"Name"`
+		IsIndoor    bool   `json:"isIndoor"`
+		IsOutdoor   bool   `json:"isOutdoor"`
+	}
+
+	classified := make([]ClassifiedDeviceModel, len(deviceModels))
+	for i, dm := range deviceModels {
+		classified[i] = ClassifiedDeviceModel{
+			DeviceModel: dm.DeviceModel,
+			ReportCount: uint8(dm.ReportCount),
+			Name:        dm.Name,
+			IsIndoor:    dm.DeviceModel == config.IndoorDeviceModel,
+			IsOutdoor:   dm.DeviceModel == config.OutdoorDeviceModel,
+		}
+	}
+
+	c.JSON(http.StatusOK, classified)
 }
 
 // getLatestRecommendation handles GET /recommendations/latest
@@ -187,4 +214,293 @@ func updateConfig(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Configuration updated successfully", "config": config})
+}
+
+type DailyAggregate struct {
+	Date              string  `json:"date"`
+	Model             string  `json:"model"`
+	AvgTemp           float32 `json:"avgTemp"`
+	HighTemp          float32 `json:"highTemp"`
+	LowTemp           float32 `json:"lowTemp"`
+	AvgHighTemp       float32 `json:"avgHighTemp"`
+	AvgLowTemp        float32 `json:"avgLowTemp"`
+	AvgHumidity       float32 `json:"avgHumidity"`
+	AvgHighHumidity   uint8   `json:"avgHighHumidity"`
+	AvgLowHumidity    uint8   `json:"avgLowHumidity"`
+	HighHumidity      uint8   `json:"highHumidity"`
+	LowHumidity       uint8   `json:"lowHumidity"`
+	ModelName         string  `json:"modelName"`
+}
+
+func getDailyAggregates(c *gin.Context, db *gorm.DB) {
+	daysStr := c.DefaultQuery("days", "90")
+	var days int
+	if _, err := fmt.Sscanf(daysStr, "%d", &days); err != nil || days <= 0 || days > 365 {
+		days = 90
+	}
+	since := time.Now().AddDate(0, 0, -days)
+
+	// Optional: filter by specific device models (comma-separated)
+	modelsParam := c.Query("models")
+	var models []string
+	if modelsParam != "" {
+		for _, m := range strings.Split(modelsParam, ",") {
+			m = strings.TrimSpace(m)
+			if m != "" {
+				models = append(models, m)
+			}
+		}
+	}
+
+	// Monthly aggregation when showing a full year
+	useMonthly := days > 90
+
+	var results []DailyAggregate
+	if useMonthly {
+		var monthlyResults []struct {
+			Month            string          `gorm:"column:month"`
+			Model            sql.NullString  `gorm:"column:model"`
+			ModelName        sql.NullString  `gorm:"column:model_name"`
+			AvgTemp          sql.NullFloat64 `gorm:"column:avg_temp"`
+			HighTemp         sql.NullFloat64 `gorm:"column:high_temp"`
+			LowTemp          sql.NullFloat64 `gorm:"column:low_temp"`
+			AvgHighTemp      sql.NullFloat64 `gorm:"column:avg_high_temp"`
+			AvgLowTemp       sql.NullFloat64 `gorm:"column:avg_low_temp"`
+			AvgHumidity      sql.NullFloat64 `gorm:"column:avg_humidity"`
+			AvgHighHumidity  sql.NullFloat64 `gorm:"column:avg_high_humidity"`
+			AvgLowHumidity   sql.NullFloat64 `gorm:"column:avg_low_humidity"`
+			HighHumidity     sql.NullFloat64 `gorm:"column:high_humidity"`
+			LowHumidity      sql.NullFloat64 `gorm:"column:low_humidity"`
+		}
+
+		whereClause := "weather_reports.time > ?"
+		args := []interface{}{since}
+		if len(models) > 0 {
+			placeholders := make([]string, len(models))
+			for i, m := range models {
+				placeholders[i] = "?"
+				args = append(args, m)
+			}
+			whereClause += " AND weather_reports.device_model IN (" + strings.Join(placeholders, ",") + ")"
+		}
+
+		monthlyQuery := fmt.Sprintf(`
+			SELECT
+				t.month,
+				t.model,
+				t.model_name,
+				ROUND(AVG(t.avg_temp), 1) as avg_temp,
+				MAX(t.max_temp) as high_temp,
+				MIN(t.min_temp) as low_temp,
+				ROUND(AVG(t.max_temp), 1) as avg_high_temp,
+				ROUND(AVG(t.min_temp), 1) as avg_low_temp,
+				ROUND(AVG(t.avg_humidity), 0) as avg_humidity,
+				ROUND(AVG(t.max_humidity), 0) as avg_high_humidity,
+				ROUND(AVG(t.min_humidity), 0) as avg_low_humidity,
+				CAST(MAX(t.max_humidity) AS REAL) as high_humidity,
+				CAST(MIN(t.min_humidity) AS REAL) as low_humidity
+			FROM (
+				SELECT
+					strftime('%%Y-%%m', weather_reports.time) as month,
+					weather_reports.device_model as model,
+					device_models.name as model_name,
+					ROUND(AVG(weather_reports.temperature_in_f), 1) as avg_temp,
+					ROUND(MAX(weather_reports.temperature_in_f), 1) as max_temp,
+					ROUND(MIN(weather_reports.temperature_in_f), 1) as min_temp,
+					ROUND(AVG(weather_reports.humidity_in_percentage), 0) as avg_humidity,
+					MAX(weather_reports.humidity_in_percentage) as max_humidity,
+					MIN(weather_reports.humidity_in_percentage) as min_humidity
+				FROM weather_reports
+				JOIN device_models ON device_models.device_model = weather_reports.device_model
+				WHERE %s
+				GROUP BY strftime('%%Y-%%d', weather_reports.time), weather_reports.device_model
+			) t
+			GROUP BY t.month, t.model
+			ORDER BY t.month ASC, t.model ASC
+		`, whereClause)
+
+		result := db.Raw(monthlyQuery, args...).Scan(&monthlyResults)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve monthly aggregates"})
+			return
+		}
+
+		results = make([]DailyAggregate, 0, len(monthlyResults))
+		for _, r := range monthlyResults {
+			agg := DailyAggregate{
+				Date:      r.Month,
+				Model:     func() string { if r.Model.Valid { return r.Model.String } else { return "unknown" } }(),
+				ModelName: func() string { if r.ModelName.Valid { return r.ModelName.String } else { return r.Model.String } }(),
+			}
+			if r.AvgTemp.Valid {
+				agg.AvgTemp = float32(r.AvgTemp.Float64)
+			}
+			if r.HighTemp.Valid {
+				agg.HighTemp = float32(r.HighTemp.Float64)
+			}
+			if r.LowTemp.Valid {
+				agg.LowTemp = float32(r.LowTemp.Float64)
+			}
+			if r.AvgHighTemp.Valid {
+				agg.AvgHighTemp = float32(r.AvgHighTemp.Float64)
+			}
+			if r.AvgLowTemp.Valid {
+				agg.AvgLowTemp = float32(r.AvgLowTemp.Float64)
+			}
+			if r.AvgHumidity.Valid {
+				agg.AvgHumidity = float32(r.AvgHumidity.Float64)
+			}
+			if r.AvgHighHumidity.Valid {
+				agg.AvgHighHumidity = uint8(r.AvgHighHumidity.Float64)
+			}
+			if r.AvgLowHumidity.Valid {
+				agg.AvgLowHumidity = uint8(r.AvgLowHumidity.Float64)
+			}
+			if r.HighHumidity.Valid {
+				agg.HighHumidity = uint8(r.HighHumidity.Float64)
+			}
+			if r.LowHumidity.Valid {
+				agg.LowHumidity = uint8(r.LowHumidity.Float64)
+			}
+			results = append(results, agg)
+		}
+	} else {
+		type rawDaily struct {
+			Date        sql.NullString `gorm:"column:date"`
+			Model       sql.NullString `gorm:"column:model"`
+			AvgTemp     sql.NullFloat64 `gorm:"column:avg_temp"`
+			HighTemp    sql.NullFloat64 `gorm:"column:high_temp"`
+			LowTemp     sql.NullFloat64 `gorm:"column:low_temp"`
+			AvgHumidity sql.NullFloat64 `gorm:"column:avg_humidity"`
+			HighHumidity sql.NullInt64  `gorm:"column:high_humidity"`
+			LowHumidity  sql.NullInt64  `gorm:"column:low_humidity"`
+			ModelName   sql.NullString `gorm:"column:model_name"`
+		}
+
+		var rawResults []rawDaily
+
+		whereClause := "weather_reports.time > ?"
+		args := []interface{}{since}
+		if len(models) > 0 {
+			placeholders := make([]string, len(models))
+			for i, m := range models {
+				placeholders[i] = "?"
+				args = append(args, m)
+			}
+			whereClause += " AND weather_reports.device_model IN (" + strings.Join(placeholders, ",") + ")"
+		}
+
+		dailyQuery := fmt.Sprintf(`
+			SELECT
+				DATETIME(weather_reports.time, 'start of day') as date,
+				weather_reports.device_model as model,
+				ROUND(AVG(weather_reports.temperature_in_f), 1) as avg_temp,
+				ROUND(MAX(weather_reports.temperature_in_f), 1) as high_temp,
+				ROUND(MIN(weather_reports.temperature_in_f), 1) as low_temp,
+				ROUND(AVG(weather_reports.humidity_in_percentage), 0) as avg_humidity,
+				CAST(MAX(weather_reports.humidity_in_percentage) AS INTEGER) as high_humidity,
+				CAST(MIN(weather_reports.humidity_in_percentage) AS INTEGER) as low_humidity,
+				device_models.name as model_name
+			FROM weather_reports
+			JOIN device_models ON device_models.device_model = weather_reports.device_model
+			WHERE %s
+			GROUP BY date, weather_reports.device_model
+			ORDER BY date ASC, weather_reports.device_model ASC
+		`, whereClause)
+
+		result := db.Raw(dailyQuery, args...).Scan(&rawResults)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve daily aggregates"})
+			return
+		}
+
+		type modelAgg struct {
+			Date        string
+			Model       string
+			ModelName   string
+			HighTemp    float32
+			LowTemp     float32
+			HighHumidity uint8
+			LowHumidity  uint8
+			sumAvgTemp  float32
+			countAvgTemp int
+			sumAvgHum   float32
+			countAvgHum  int
+		}
+
+		aggMap := make(map[string]*modelAgg)
+		for _, r := range rawResults {
+			if !r.Date.Valid || !r.Model.Valid {
+				continue
+			}
+			key := r.Date.String + "|" + r.Model.String
+			agg, exists := aggMap[key]
+			if !exists {
+				agg = &modelAgg{
+					Date:     r.Date.String,
+					Model:    r.Model.String,
+					ModelName: func() string { if r.ModelName.Valid { return r.ModelName.String } else { return r.Model.String } }(),
+				}
+				if r.HighTemp.Valid {
+					agg.HighTemp = float32(r.HighTemp.Float64)
+				}
+				if r.LowTemp.Valid {
+					agg.LowTemp = float32(r.LowTemp.Float64)
+				}
+				if r.HighHumidity.Valid {
+					agg.HighHumidity = uint8(r.HighHumidity.Int64)
+				}
+				if r.LowHumidity.Valid {
+					agg.LowHumidity = uint8(r.LowHumidity.Int64)
+				}
+				aggMap[key] = agg
+			} else {
+				if r.HighTemp.Valid && float32(r.HighTemp.Float64) > agg.HighTemp {
+					agg.HighTemp = float32(r.HighTemp.Float64)
+				}
+				if r.LowTemp.Valid && float32(r.LowTemp.Float64) < agg.LowTemp {
+					agg.LowTemp = float32(r.LowTemp.Float64)
+				}
+				if r.HighHumidity.Valid && uint8(r.HighHumidity.Int64) > agg.HighHumidity {
+					agg.HighHumidity = uint8(r.HighHumidity.Int64)
+				}
+				if r.LowHumidity.Valid && uint8(r.LowHumidity.Int64) < agg.LowHumidity {
+					agg.LowHumidity = uint8(r.LowHumidity.Int64)
+				}
+			}
+			if r.AvgTemp.Valid {
+				agg.sumAvgTemp += float32(r.AvgTemp.Float64)
+				agg.countAvgTemp++
+			}
+			if r.AvgHumidity.Valid {
+				agg.sumAvgHum += float32(r.AvgHumidity.Float64)
+				agg.countAvgHum++
+			}
+		}
+
+		results = make([]DailyAggregate, 0, len(aggMap))
+		for _, agg := range aggMap {
+			avgTemp := float32(0)
+			if agg.countAvgTemp > 0 {
+				avgTemp = agg.sumAvgTemp / float32(agg.countAvgTemp)
+			}
+			avgHumidity := float32(0)
+			if agg.countAvgHum > 0 {
+				avgHumidity = agg.sumAvgHum / float32(agg.countAvgHum)
+			}
+			results = append(results, DailyAggregate{
+				Date:        agg.Date,
+				Model:       agg.Model,
+				ModelName:   agg.ModelName,
+				AvgTemp:     avgTemp,
+				HighTemp:    agg.HighTemp,
+				LowTemp:     agg.LowTemp,
+				AvgHumidity: avgHumidity,
+				HighHumidity: agg.HighHumidity,
+				LowHumidity:  agg.LowHumidity,
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, results)
 }

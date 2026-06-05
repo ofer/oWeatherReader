@@ -1,0 +1,290 @@
+<div class="history-container">
+  <!-- Controls Bar -->
+  <div class="controls-bar">
+    <mat-form-field appearance="outline" class="days-select">
+      <mat-label>Time Range</mat-label>
+      <mat-select [(value)]="daysRange" (selectionChange)="onDaysChange()">
+        <mat-option [value]="7">7 Days</mat-option>
+        <mat-option [value]="30">30 Days</mat-option>
+        <mat-option [value]="90">90 Days</mat-option>
+        <mat-option [value]="365">1 Year</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <span class="record-count" *ngIf="hasAnyData">
+      {{ recordCount }} {{ isMonthly ? 'monthly' : 'daily' }} records
+    </span>
+  </div>
+
+  <!-- No Sensors Selected -->
+  <mat-card class="empty-card" *ngIf="!loading && !hasAnyData">
+    <mat-card-content>
+      <mat-icon class="empty-icon">warning</mat-icon>
+      <p>No sensors selected. Go to Settings to choose indoor and outdoor sensors.</p>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Loading Indicator -->
+  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+
+  <!-- Comfort Level Section (Shared Legend) -->
+  <mat-card class="legend-card" *ngIf="hasAnyData">
+    <mat-card-header>
+      <mat-card-title>Comfort Scale</mat-card-title>
+      <mat-card-subtitle>Heat Index ranges (temperature + humidity combined)</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="legend-row" *ngFor="let item of comfortScale">
+        <div class="legend-swatch" [style.background]="item.color">
+          <mat-icon>{{ item.icon }}</mat-icon>
+        </div>
+        <span class="legend-label">{{ item.label }}</span>
+        <span class="legend-range">{{ item.range }}</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Indoor Section -->
+  <ng-container *ngIf="hasIndoorData">
+    <mat-card class="section-header">
+      <mat-card-header>
+        <mat-card-title>Indoor Sensor</mat-card-title>
+        <mat-card-subtitle>{{ indoorAggregates[0].modelName || 'Unknown' }}</mat-card-subtitle>
+      </mat-card-header>
+    </mat-card>
+
+    <!-- Indoor Comfort Levels -->
+    <mat-card class="comfort-card" *ngIf="indoorComfortLevels.length">
+      <mat-card-header>
+        <mat-card-title>Estimated Comfort Level</mat-card-title>
+        <mat-card-subtitle>Based on heat index (temperature + humidity)</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="comfort-grid">
+          <div class="comfort-item" *ngFor="let level of indoorComfortLevels" [style.borderLeftColor]="level.color">
+            <div class="comfort-date">{{ level.date }}</div>
+            <div class="comfort-rating" [style.color]="level.color">
+              <mat-icon>{{ level.icon }}</mat-icon>
+              {{ level.rating }}
+            </div>
+            <div class="comfort-model">{{ level.modelName }}</div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Indoor Comfort Summary -->
+    <mat-card class="summary-card" *ngIf="indoorComfortLevels.length">
+      <mat-card-header>
+        <mat-card-title>Comfort Summary</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-grid">
+          <div class="summary-item" *ngFor="let group of getComfortGroups(indoorAggregates)">
+            <div class="summary-badge" [style.background]="group.color">
+              {{ group.count }}
+            </div>
+            <span class="summary-label">{{ group.name }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Indoor Temperature Chart -->
+    <mat-card class="chart-card" *ngIf="indoorAggregates.length">
+      <mat-card-header>
+        <mat-card-title>Indoor Temperature</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div echarts [options]="indoorTempChartOption" style="height: 350px;"></div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Indoor Humidity Chart -->
+    <mat-card class="chart-card" *ngIf="indoorAggregates.length">
+      <mat-card-header>
+        <mat-card-title>Indoor Humidity</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div echarts [options]="indoorHumidityChartOption" style="height: 300px;"></div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Indoor Data Table -->
+    <mat-card class="table-card" *ngIf="indoorAggregates.length">
+      <mat-card-header>
+        <mat-card-title>{{ isMonthly ? 'Monthly' : 'Daily' }} Summary</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrapper">
+          <table mat-table [dataSource]="indoorAggregates" class="full-width-table">
+            <ng-container matColumnDef="date">
+              <th mat-header-cell *matHeaderCellDef>{{ isMonthly ? 'Month' : 'Date' }}</th>
+              <td mat-cell *matCellDef="let row">{{ row.date }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="model">
+              <th mat-header-cell *matHeaderCellDef>Device</th>
+              <td mat-cell *matCellDef="let row">{{ row.modelName }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="avgTemp">
+              <th mat-header-cell *matHeaderCellDef>Avg Temp</th>
+              <td mat-cell *matCellDef="let row">{{ row.avgTemp | number:'1.1-1' }}°F</td>
+            </ng-container>
+
+            <ng-container matColumnDef="highTemp">
+              <th mat-header-cell *matHeaderCellDef>High</th>
+              <td mat-cell *matCellDef="let row">{{ row.highTemp | number:'1.1-1' }}°F</td>
+            </ng-container>
+
+            <ng-container matColumnDef="lowTemp">
+              <th mat-header-cell *matHeaderCellDef>Low</th>
+              <td mat-cell *matCellDef="let row">{{ row.lowTemp | number:'1.1-1' }}°F</td>
+            </ng-container>
+
+            <ng-container matColumnDef="avgHumidity">
+              <th mat-header-cell *matHeaderCellDef>Avg Humidity</th>
+              <td mat-cell *matCellDef="let row">{{ row.avgHumidity | number:'1.0-0' }}%</td>
+            </ng-container>
+
+            <ng-container matColumnDef="comfort">
+              <th mat-header-cell *matHeaderCellDef>Comfort</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="comfort-badge" [style.background]="getComfortForAgg(row).color">
+                  {{ getComfortForAgg(row).icon }}
+                  {{ getComfortForAgg(row).rating }}
+                </span>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
+
+  <!-- Outdoor Section -->
+  <ng-container *ngIf="hasOutdoorData">
+    <mat-card class="section-header">
+      <mat-card-header>
+        <mat-card-title>Outdoor Sensor</mat-card-title>
+        <mat-card-subtitle>{{ outdoorAggregates[0].modelName || 'Unknown' }}</mat-card-subtitle>
+      </mat-card-header>
+    </mat-card>
+
+    <!-- Outdoor Comfort Levels -->
+    <mat-card class="comfort-card" *ngIf="outdoorComfortLevels.length">
+      <mat-card-header>
+        <mat-card-title>Estimated Comfort Level</mat-card-title>
+        <mat-card-subtitle>Based on heat index (temperature + humidity)</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="comfort-grid">
+          <div class="comfort-item" *ngFor="let level of outdoorComfortLevels" [style.borderLeftColor]="level.color">
+            <div class="comfort-date">{{ level.date }}</div>
+            <div class="comfort-rating" [style.color]="level.color">
+              <mat-icon>{{ level.icon }}</mat-icon>
+              {{ level.rating }}
+            </div>
+            <div class="comfort-model">{{ level.modelName }}</div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Outdoor Comfort Summary -->
+    <mat-card class="summary-card" *ngIf="outdoorComfortLevels.length">
+      <mat-card-header>
+        <mat-card-title>Comfort Summary</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-grid">
+          <div class="summary-item" *ngFor="let group of getComfortGroups(outdoorAggregates)">
+            <div class="summary-badge" [style.background]="group.color">
+              {{ group.count }}
+            </div>
+            <span class="summary-label">{{ group.name }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Outdoor Temperature Chart -->
+    <mat-card class="chart-card" *ngIf="outdoorAggregates.length">
+      <mat-card-header>
+        <mat-card-title>Outdoor Temperature</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div echarts [options]="outdoorTempChartOption" style="height: 350px;"></div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Outdoor Humidity Chart -->
+    <mat-card class="chart-card" *ngIf="outdoorAggregates.length">
+      <mat-card-header>
+        <mat-card-title>Outdoor Humidity</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div echarts [options]="outdoorHumidityChartOption" style="height: 300px;"></div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Outdoor Data Table -->
+    <mat-card class="table-card" *ngIf="outdoorAggregates.length">
+      <mat-card-header>
+        <mat-card-title>{{ isMonthly ? 'Monthly' : 'Daily' }} Summary</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrapper">
+          <table mat-table [dataSource]="outdoorAggregates" class="full-width-table">
+            <ng-container matColumnDef="date">
+              <th mat-header-cell *matHeaderCellDef>{{ isMonthly ? 'Month' : 'Date' }}</th>
+              <td mat-cell *matCellDef="let row">{{ row.date }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="model">
+              <th mat-header-cell *matHeaderCellDef>Device</th>
+              <td mat-cell *matCellDef="let row">{{ row.modelName }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="avgTemp">
+              <th mat-header-cell *matHeaderCellDef>Avg Temp</th>
+              <td mat-cell *matCellDef="let row">{{ row.avgTemp | number:'1.1-1' }}°F</td>
+            </ng-container>
+
+            <ng-container matColumnDef="highTemp">
+              <th mat-header-cell *matHeaderCellDef>High</th>
+              <td mat-cell *matCellDef="let row">{{ row.highTemp | number:'1.1-1' }}°F</td>
+            </ng-container>
+
+            <ng-container matColumnDef="lowTemp">
+              <th mat-header-cell *matHeaderCellDef>Low</th>
+              <td mat-cell *matCellDef="let row">{{ row.lowTemp | number:'1.1-1' }}°F</td>
+            </ng-container>
+
+            <ng-container matColumnDef="avgHumidity">
+              <th mat-header-cell *matHeaderCellDef>Avg Humidity</th>
+              <td mat-cell *matCellDef="let row">{{ row.avgHumidity | number:'1.0-0' }}%</td>
+            </ng-container>
+
+            <ng-container matColumnDef="comfort">
+              <th mat-header-cell *matHeaderCellDef>Comfort</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="comfort-badge" [style.background]="getComfortForAgg(row).color">
+                  {{ getComfortForAgg(row).icon }}
+                  {{ getComfortForAgg(row).rating }}
+                </span>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
+</div>
