@@ -400,3 +400,301 @@ func TestGetDailyAggregates_MonthlyHasAvgHighLowHumidity(t *testing.T) {
 		t.Errorf("expected lowHumidity 35, got %d", r.LowHumidity)
 	}
 }
+
+func TestGetDailyAggregates_DailyModeHas5YearAvgHighLow(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tmpFile, err := os.CreateTemp("", "weather-daily-5year-avg-test-*.db")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	db, err := gorm.Open(sqlite.Open(tmpFile.Name()), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to connect test database: %v", err)
+	}
+	db.AutoMigrate(&WeatherReport{}, &DeviceModel{}, &OllamaRecommendation{})
+
+// Insert device model
+	db.Create(&DeviceModel{DeviceModel: "MultiYearSensor", Name: "Multi-Year Sensor"})
+
+	// Insert data for the same month-day (June 5) across multiple years
+	// Each year has two readings (morning low + afternoon high) so that
+	// MAX/MIN per day differ.
+	// Year 2021: high 90, low 70
+	// Year 2022: high 94, low 74
+	// Year 2023: high 92, low 72
+	// Year 2024: high 96, low 76
+	// Year 2025: high 88, low 68
+	// Year 2026: high 91, low 71 (current day)
+	// 5-year avg (2021-2025): avgHigh=(90+94+92+96+88)/5=92.0, avgLow=(70+74+72+76+68)/5=72.0
+	type dayData struct {
+		year int
+		high float32
+		low  float32
+	}
+	days := []dayData{
+		{2021, 90, 70},
+		{2022, 94, 74},
+		{2023, 92, 72},
+		{2024, 96, 76},
+		{2025, 88, 68},
+		{2026, 91, 71},
+	}
+	for _, d := range days {
+		// Morning reading (low) + afternoon reading (high)
+		db.Create(&WeatherReport{
+			Time:               time.Date(d.year, 6, 5, 8, 0, 0, 0, time.UTC),
+			DeviceModel:        "MultiYearSensor",
+			TemperatureInF:     d.low,
+			HumidityInPercentage: 55,
+		})
+		db.Create(&WeatherReport{
+			Time:               time.Date(d.year, 6, 5, 14, 0, 0, 0, time.UTC),
+			DeviceModel:        "MultiYearSensor",
+			TemperatureInF:     d.high,
+			HumidityInPercentage: 45,
+		})
+	}
+
+	rr := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rr)
+	c.Request = httptest.NewRequest("GET", "/reports/history?days=30", nil)
+	c.Request.URL.RawQuery = "days=30"
+
+	getDailyAggregates(c, db)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	var results []DailyAggregate
+	if err := json.Unmarshal(rr.Body.Bytes(), &results); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	// Should have 1 day-model combination (June 5, MultiYearSensor)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+
+	r := results[0]
+
+	// Verify avgHighTemp is the 5-year average of daily highs (2021-2025)
+	if r.AvgHighTemp == 0 {
+		t.Fatal("expected non-zero avgHighTemp in daily mode")
+	}
+	var expectedAvgHigh float32 = 92.0
+	if r.AvgHighTemp < expectedAvgHigh-0.1 || r.AvgHighTemp > expectedAvgHigh+0.1 {
+		t.Errorf("expected avgHighTemp ~%.1f, got %.1f", expectedAvgHigh, r.AvgHighTemp)
+	}
+
+	// Verify avgLowTemp is the 5-year average of daily lows (2021-2025)
+	if r.AvgLowTemp == 0 {
+		t.Fatal("expected non-zero avgLowTemp in daily mode")
+	}
+	var expectedAvgLow float32 = 72.0
+	if r.AvgLowTemp < expectedAvgLow-0.1 || r.AvgLowTemp > expectedAvgLow+0.1 {
+		t.Errorf("expected avgLowTemp ~%.1f, got %.1f", expectedAvgLow, r.AvgLowTemp)
+	}
+
+	// Verify the current day's actual high/low are also correct
+	if r.HighTemp != 91.0 {
+		t.Errorf("expected highTemp 91.0, got %.1f", r.HighTemp)
+	}
+	if r.LowTemp != 71.0 {
+		t.Errorf("expected lowTemp 71.0, got %.1f", r.LowTemp)
+	}
+}
+
+func TestGetDailyAggregates_DailyModeAvgHighLowWithMultipleSensors(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tmpFile, err := os.CreateTemp("", "weather-daily-multi-sensor-test-*.db")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	db, err := gorm.Open(sqlite.Open(tmpFile.Name()), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to connect test database: %v", err)
+	}
+	db.AutoMigrate(&WeatherReport{}, &DeviceModel{}, &OllamaRecommendation{})
+
+	db.Create(&DeviceModel{DeviceModel: "Indoor", Name: "Indoor Sensor"})
+	db.Create(&DeviceModel{DeviceModel: "Outdoor", Name: "Outdoor Sensor"})
+
+	// Indoor sensor: 3 years of June 5 data (each with morning low + afternoon high)
+	// 2023: high 72, low 60 | 2024: high 74, low 62 | 2025: high 70, low 58
+	// 2026: high 73, low 61 (current day)
+	// 5-yr avg high = (72+74+70)/3 = 72.0, avg low = (60+62+58)/3 = 60.0
+	type dayData struct{ year int; high float32; low float32 }
+	indoorDays := []dayData{
+		{2023, 72, 60},
+		{2024, 74, 62},
+		{2025, 70, 58},
+		{2026, 73, 61},
+	}
+	for _, d := range indoorDays {
+		db.Create(&WeatherReport{
+			Time:               time.Date(d.year, 6, 5, 8, 0, 0, 0, time.UTC),
+			DeviceModel:        "Indoor",
+			TemperatureInF:     d.low,
+			HumidityInPercentage: 45,
+		})
+		db.Create(&WeatherReport{
+			Time:               time.Date(d.year, 6, 5, 14, 0, 0, 0, time.UTC),
+			DeviceModel:        "Indoor",
+			TemperatureInF:     d.high,
+			HumidityInPercentage: 45,
+		})
+	}
+
+	// Outdoor sensor: 3 years of June 5 data (each with morning low + afternoon high)
+	// 2023: high 35, low 20 | 2024: high 38, low 22 | 2025: high 33, low 18
+	// 2026: high 36, low 21 (current day)
+	// 5-yr avg high = (35+38+33)/3 = 35.3, avg low = (20+22+18)/3 = 20.0
+	outdoorDays := []dayData{
+		{2023, 35, 20},
+		{2024, 38, 22},
+		{2025, 33, 18},
+		{2026, 36, 21},
+	}
+	for _, d := range outdoorDays {
+		db.Create(&WeatherReport{
+			Time:               time.Date(d.year, 6, 5, 8, 0, 0, 0, time.UTC),
+			DeviceModel:        "Outdoor",
+			TemperatureInF:     d.low,
+			HumidityInPercentage: 55,
+		})
+		db.Create(&WeatherReport{
+			Time:               time.Date(d.year, 6, 5, 14, 0, 0, 0, time.UTC),
+			DeviceModel:        "Outdoor",
+			TemperatureInF:     d.high,
+			HumidityInPercentage: 55,
+		})
+	}
+
+	rr := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rr)
+	c.Request = httptest.NewRequest("GET", "/reports/history?days=30", nil)
+	c.Request.URL.RawQuery = "days=30"
+
+	getDailyAggregates(c, db)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	var results []DailyAggregate
+	if err := json.Unmarshal(rr.Body.Bytes(), &results); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results (Indoor + Outdoor), got %d", len(results))
+	}
+
+	for _, r := range results {
+		if r.AvgHighTemp == 0 {
+			t.Errorf("%s: expected non-zero avgHighTemp, got 0", r.Model)
+		}
+		if r.AvgLowTemp == 0 {
+			t.Errorf("%s: expected non-zero avgLowTemp, got 0", r.Model)
+		}
+	}
+
+	indoor := results[0]
+	if indoor.Model == "Outdoor" {
+		indoor = results[1]
+	}
+
+	if indoor.Model == "Indoor" {
+		// avgHighTemp = ROUND(AVG(72,74,70), 1) = 72.0
+		if indoor.AvgHighTemp < 71.9 || indoor.AvgHighTemp > 72.1 {
+			t.Errorf("indoor avgHighTemp: expected ~72.0, got %.1f", indoor.AvgHighTemp)
+		}
+		// avgLowTemp = ROUND(AVG(60,62,58), 1) = 60.0
+		if indoor.AvgLowTemp < 59.9 || indoor.AvgLowTemp > 60.1 {
+			t.Errorf("indoor avgLowTemp: expected ~60.0, got %.1f", indoor.AvgLowTemp)
+		}
+	}
+
+	outdoor := results[1]
+	if outdoor.Model == "Indoor" {
+		outdoor = results[0]
+	}
+
+	if outdoor.Model == "Outdoor" {
+		// avgHighTemp = ROUND(AVG(35,38,33), 1) = 35.3
+		if outdoor.AvgHighTemp < 35.2 || outdoor.AvgHighTemp > 35.4 {
+			t.Errorf("outdoor avgHighTemp: expected ~35.3, got %.1f", outdoor.AvgHighTemp)
+		}
+		// avgLowTemp = ROUND(AVG(20,22,18), 1) = 20.0
+		if outdoor.AvgLowTemp < 19.9 || outdoor.AvgLowTemp > 20.1 {
+			t.Errorf("outdoor avgLowTemp: expected ~20.0, got %.1f", outdoor.AvgLowTemp)
+		}
+	}
+}
+
+func TestGetDailyAggregates_DailyModeNo5YearAvgWithInsufficientHistory(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tmpFile, err := os.CreateTemp("", "weather-daily-short-history-test-*.db")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	db, err := gorm.Open(sqlite.Open(tmpFile.Name()), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to connect test database: %v", err)
+	}
+	db.AutoMigrate(&WeatherReport{}, &DeviceModel{}, &OllamaRecommendation{})
+
+	db.Create(&DeviceModel{DeviceModel: "NewSensor", Name: "New Sensor"})
+
+	// Only 1 year of data — no 5-year history available
+	db.Create(&WeatherReport{
+		Time: time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC),
+		DeviceModel: "NewSensor",
+		TemperatureInF: 85.0,
+		HumidityInPercentage: 50,
+	})
+
+	rr := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rr)
+	c.Request = httptest.NewRequest("GET", "/reports/history?days=30", nil)
+	c.Request.URL.RawQuery = "days=30"
+
+	getDailyAggregates(c, db)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+
+	var results []DailyAggregate
+	if err := json.Unmarshal(rr.Body.Bytes(), &results); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+
+	r := results[0]
+
+	// avgHighTemp and avgLowTemp should be 0 since there's only 1 year of data
+	// (not enough to compute a 5-year average)
+	if r.AvgHighTemp != 0 {
+		t.Errorf("expected avgHighTemp 0 with insufficient history, got %.1f", r.AvgHighTemp)
+	}
+	if r.AvgLowTemp != 0 {
+		t.Errorf("expected avgLowTemp 0 with insufficient history, got %.1f", r.AvgLowTemp)
+	}
+}

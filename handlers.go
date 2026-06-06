@@ -414,18 +414,68 @@ func getDailyAggregates(c *gin.Context, db *gorm.DB) {
 			return
 		}
 
+		// Compute 5-year daily averages (avg high/low per model per month-day) for historical comparison.
+		var fiveYearAvgResults []struct {
+			Model       string          `gorm:"column:model"`
+			MonthDay    string          `gorm:"column:month_day"`
+			AvgHighTemp sql.NullFloat64 `gorm:"column:avg_high_temp"`
+			AvgLowTemp  sql.NullFloat64 `gorm:"column:avg_low_temp"`
+		}
+		fiveYearQuery := `
+			WITH daily AS (
+				SELECT
+					weather_reports.device_model as model,
+					strftime('%m-%d', time) as month_day,
+					ROUND(MAX(temperature_in_f), 1) as daily_high,
+					ROUND(MIN(temperature_in_f), 1) as daily_low
+				FROM weather_reports
+				WHERE date(time) >= (SELECT strftime('%Y-%m-%d', MAX(time), '-5 years', 'start of day') FROM weather_reports)
+				AND date(time) < (SELECT strftime('%Y-%m-%d', MAX(time), 'start of day') FROM weather_reports)
+				GROUP BY date(time), weather_reports.device_model, strftime('%m-%d', time)
+			)
+			SELECT
+				model,
+				month_day,
+				ROUND(AVG(daily_high), 1) as avg_high_temp,
+				ROUND(AVG(daily_low), 1) as avg_low_temp
+			FROM daily
+			GROUP BY model, month_day
+		`
+		db.Raw(fiveYearQuery).Scan(&fiveYearAvgResults)
+
+		// Map: "MM-DD" -> {high, low} per model
+		type modelAvg struct {
+			high float32
+			low  float32
+		}
+		fiveYearMap := make(map[string]map[string]modelAvg)
+		for _, r := range fiveYearAvgResults {
+			if !r.AvgHighTemp.Valid || !r.AvgLowTemp.Valid {
+				continue
+			}
+			if fiveYearMap[r.MonthDay] == nil {
+				fiveYearMap[r.MonthDay] = make(map[string]modelAvg)
+			}
+			fiveYearMap[r.MonthDay][r.Model] = modelAvg{
+				high: float32(r.AvgHighTemp.Float64),
+				low:  float32(r.AvgLowTemp.Float64),
+			}
+		}
+
 		type modelAgg struct {
-			Date        string
-			Model       string
-			ModelName   string
-			HighTemp    float32
-			LowTemp     float32
-			HighHumidity uint8
-			LowHumidity  uint8
-			sumAvgTemp  float32
-			countAvgTemp int
-			sumAvgHum   float32
-			countAvgHum  int
+			Date           string
+			Model          string
+			ModelName      string
+			HighTemp       float32
+			LowTemp        float32
+			HighHumidity   uint8
+			LowHumidity    uint8
+			AvgHighTemp    float32
+			AvgLowTemp     float32
+			sumAvgTemp     float32
+			countAvgTemp   int
+			sumAvgHum      float32
+			countAvgHum    int
 		}
 
 		aggMap := make(map[string]*modelAgg)
@@ -478,6 +528,23 @@ func getDailyAggregates(c *gin.Context, db *gorm.DB) {
 			}
 		}
 
+		// Look up 5-year historical averages by month-day and model
+		for _, agg := range aggMap {
+			// Extract MM-DD from either "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS"
+			var mm, dd string
+			if len(agg.Date) >= 10 {
+				mm = agg.Date[5:7]
+				dd = agg.Date[8:10]
+			}
+			monthDay := mm + "-" + dd
+			if byModel, ok := fiveYearMap[monthDay]; ok {
+				if avg, ok := byModel[agg.Model]; ok {
+					agg.AvgHighTemp = avg.high
+					agg.AvgLowTemp = avg.low
+				}
+			}
+		}
+
 		results = make([]DailyAggregate, 0, len(aggMap))
 		for _, agg := range aggMap {
 			avgTemp := float32(0)
@@ -489,15 +556,17 @@ func getDailyAggregates(c *gin.Context, db *gorm.DB) {
 				avgHumidity = agg.sumAvgHum / float32(agg.countAvgHum)
 			}
 			results = append(results, DailyAggregate{
-				Date:        agg.Date,
-				Model:       agg.Model,
-				ModelName:   agg.ModelName,
-				AvgTemp:     avgTemp,
-				HighTemp:    agg.HighTemp,
-				LowTemp:     agg.LowTemp,
-				AvgHumidity: avgHumidity,
-				HighHumidity: agg.HighHumidity,
-				LowHumidity:  agg.LowHumidity,
+				Date:           agg.Date,
+				Model:          agg.Model,
+				ModelName:      agg.ModelName,
+				AvgTemp:        avgTemp,
+				HighTemp:       agg.HighTemp,
+				LowTemp:        agg.LowTemp,
+				AvgHumidity:    avgHumidity,
+				HighHumidity:   agg.HighHumidity,
+				LowHumidity:    agg.LowHumidity,
+				AvgHighTemp:    agg.AvgHighTemp,
+				AvgLowTemp:     agg.AvgLowTemp,
 			})
 		}
 	}
