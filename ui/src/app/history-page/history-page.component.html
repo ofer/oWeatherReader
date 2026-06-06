@@ -109,61 +109,6 @@
         <div echarts [options]="indoorHumidityChartOption" style="height: 300px;"></div>
       </mat-card-content>
     </mat-card>
-
-    <!-- Indoor Data Table -->
-    <mat-card class="table-card" *ngIf="indoorAggregates.length">
-      <mat-card-header>
-        <mat-card-title>{{ isMonthly ? 'Monthly' : 'Daily' }} Summary</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="table-wrapper">
-          <table mat-table [dataSource]="indoorAggregates" class="full-width-table">
-            <ng-container matColumnDef="date">
-              <th mat-header-cell *matHeaderCellDef>{{ isMonthly ? 'Month' : 'Date' }}</th>
-              <td mat-cell *matCellDef="let row">{{ row.date }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="model">
-              <th mat-header-cell *matHeaderCellDef>Device</th>
-              <td mat-cell *matCellDef="let row">{{ row.modelName }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="avgTemp">
-              <th mat-header-cell *matHeaderCellDef>Avg Temp</th>
-              <td mat-cell *matCellDef="let row">{{ row.avgTemp | number:'1.1-1' }}°F</td>
-            </ng-container>
-
-            <ng-container matColumnDef="highTemp">
-              <th mat-header-cell *matHeaderCellDef>High</th>
-              <td mat-cell *matCellDef="let row">{{ row.highTemp | number:'1.1-1' }}°F</td>
-            </ng-container>
-
-            <ng-container matColumnDef="lowTemp">
-              <th mat-header-cell *matHeaderCellDef>Low</th>
-              <td mat-cell *matCellDef="let row">{{ row.lowTemp | number:'1.1-1' }}°F</td>
-            </ng-container>
-
-            <ng-container matColumnDef="avgHumidity">
-              <th mat-header-cell *matHeaderCellDef>Avg Humidity</th>
-              <td mat-cell *matCellDef="let row">{{ row.avgHumidity | number:'1.0-0' }}%</td>
-            </ng-container>
-
-            <ng-container matColumnDef="comfort">
-              <th mat-header-cell *matHeaderCellDef>Comfort</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="comfort-badge" [style.background]="getComfortForAgg(row).color">
-                  {{ getComfortForAgg(row).icon }}
-                  {{ getComfortForAgg(row).rating }}
-                </span>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-          </table>
-        </div>
-      </mat-card-content>
-    </mat-card>
   </ng-container>
 
   <!-- Outdoor Section -->
@@ -232,59 +177,5 @@
       </mat-card-content>
     </mat-card>
 
-    <!-- Outdoor Data Table -->
-    <mat-card class="table-card" *ngIf="outdoorAggregates.length">
-      <mat-card-header>
-        <mat-card-title>{{ isMonthly ? 'Monthly' : 'Daily' }} Summary</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="table-wrapper">
-          <table mat-table [dataSource]="outdoorAggregates" class="full-width-table">
-            <ng-container matColumnDef="date">
-              <th mat-header-cell *matHeaderCellDef>{{ isMonthly ? 'Month' : 'Date' }}</th>
-              <td mat-cell *matCellDef="let row">{{ row.date }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="model">
-              <th mat-header-cell *matHeaderCellDef>Device</th>
-              <td mat-cell *matCellDef="let row">{{ row.modelName }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="avgTemp">
-              <th mat-header-cell *matHeaderCellDef>Avg Temp</th>
-              <td mat-cell *matCellDef="let row">{{ row.avgTemp | number:'1.1-1' }}°F</td>
-            </ng-container>
-
-            <ng-container matColumnDef="highTemp">
-              <th mat-header-cell *matHeaderCellDef>High</th>
-              <td mat-cell *matCellDef="let row">{{ row.highTemp | number:'1.1-1' }}°F</td>
-            </ng-container>
-
-            <ng-container matColumnDef="lowTemp">
-              <th mat-header-cell *matHeaderCellDef>Low</th>
-              <td mat-cell *matCellDef="let row">{{ row.lowTemp | number:'1.1-1' }}°F</td>
-            </ng-container>
-
-            <ng-container matColumnDef="avgHumidity">
-              <th mat-header-cell *matHeaderCellDef>Avg Humidity</th>
-              <td mat-cell *matCellDef="let row">{{ row.avgHumidity | number:'1.0-0' }}%</td>
-            </ng-container>
-
-            <ng-container matColumnDef="comfort">
-              <th mat-header-cell *matHeaderCellDef>Comfort</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="comfort-badge" [style.background]="getComfortForAgg(row).color">
-                  {{ getComfortForAgg(row).icon }}
-                  {{ getComfortForAgg(row).rating }}
-                </span>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-          </table>
-        </div>
-      </mat-card-content>
-    </mat-card>
   </ng-container>
 </div>
