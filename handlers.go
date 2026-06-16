@@ -313,7 +313,7 @@ func getDailyAggregates(c *gin.Context, db *gorm.DB) {
 				FROM weather_reports
 				JOIN device_models ON device_models.device_model = weather_reports.device_model
 				WHERE %s
-				GROUP BY strftime('%%Y-%%d', weather_reports.time), weather_reports.device_model
+				GROUP BY strftime('%%Y-%%m-%%d', weather_reports.time), weather_reports.device_model
 			) t
 			GROUP BY t.month, t.model
 			ORDER BY t.month ASC, t.model ASC
